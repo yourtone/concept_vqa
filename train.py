@@ -17,7 +17,8 @@ import numpy as np
 from visdom import Visdom
 
 from dataset import VQADataset
-from models import Baseline
+from models import Baseline, ConceptAttModel, MergeAttModel, AllAttModel
+from models import SplitAttModel
 from eval_tools import get_eval
 
 
@@ -97,8 +98,10 @@ def main():
 
     # model
     logger.debug('[Info] construct model, criterion and optimizer')
-    model = Baseline(num_words=trn_set.num_words,
-                     num_ans=trn_set.num_ans)
+    model = MergeAttModel(num_words=trn_set.num_words,
+                            num_ans=trn_set.num_ans,
+                            num_objs=trn_set.num_objs)
+
     # initialize word embedding with pretrained
     emb = model.we.weight.data.numpy()
     words = trn_set.codebook['itow']
@@ -114,6 +117,29 @@ def main():
         if w in word_vec:
             emb[i] = word_vec[w]
     model.we.weight = nn.Parameter(torch.from_numpy(emb))
+
+    # initialize object embedding with pretrained
+    obj_emb = model.obj_net[0].weight.data.numpy()
+    for i, line in enumerate(trn_set.objects_vocab):
+        synonyms = line.split(',')
+        act_num = []
+        for label in synonyms:
+            words = label.split()
+            act = 0
+            for word in words:
+                if word in word_vec:
+                    act += 1
+            act_num.append(act)
+        act_idx = max(range(len(act_num)), key=lambda x: act_num[x])
+        vec = np.zeros((300,), dtype='float32')
+        if act_num[act_idx] > 0:
+            for word in synonyms[act_idx]:
+                if word in word_vec:
+                    vec += word_vec[word]
+            vec /= act_num[act_idx]
+            obj_emb[i] = vec
+    model.obj_net[0].weight = nn.Parameter(torch.from_numpy(obj_emb))
+
     model.cuda()
 
     criterion = nn.CrossEntropyLoss().cuda()
@@ -167,14 +193,15 @@ def train(train_loader, model, criterion, optimizer, epoch):
     model.train()
 
     end = time.time()
-    for i, (img, que_id, que, ans) in enumerate(train_loader):
+    for i, (img, que_id, que, obj, ans) in enumerate(train_loader):
         data_time.update(time.time() - end)
 
         img_var = torch.autograd.Variable(img).cuda()
         que_var = torch.autograd.Variable(que).cuda()
+        obj_var = torch.autograd.Variable(obj).cuda()
         ans_var = torch.autograd.Variable(ans).cuda()
 
-        score = model(img_var, que_var)
+        score = model(img_var, que_var, obj_var)
         loss = criterion(score, ans_var)
 
         losses.update(loss.data[0], img.size(0))
@@ -204,11 +231,12 @@ def validate(val_loader, model, criterion, epoch):
     results = []
     end = time.time()
     bar = progressbar.ProgressBar()
-    for img, que_id, que in bar(val_loader):
+    for img, que_id, que, obj in bar(val_loader):
         img_var = torch.autograd.Variable(img).cuda()
         que_var = torch.autograd.Variable(que).cuda()
+        obj_var = torch.autograd.Variable(obj).cuda()
 
-        score = model(img_var, que_var)
+        score = model(img_var, que_var, obj_var)
 
         results.extend(format_result(que_id, score, itoa))
 
