@@ -19,22 +19,18 @@ class VQADataset(Dataset):
         if split == 'train':
             fea_fname = '{}/train2014_36_feature.npy'.format(data_dir)
             self.img_feas = open_memmap(fea_fname, dtype='float32')
-            obj_fname = '{}/train2014_36_class.npy'.format(data_dir)
-            self.obj_idx = np.load(obj_fname)
+            obj_fname = '{}/train2014_36_class-fea.npy'.format(data_dir)
+            self.obj_feas = open_memmap(obj_fname, dtype='float32')
         else:
             fea_fname = '{}/val2014_36_feature.npy'.format(data_dir)
             self.img_feas = open_memmap(fea_fname, dtype='float32')
-            obj_fname = '{}/val2014_36_class.npy'.format(data_dir)
-            self.obj_idx = np.load(obj_fname)
-
-        with open('data/objects_vocab.txt') as f:
-            self.objects_vocab = f.read().splitlines()
-        self.objects_vocab = ['__no_objects__'] + self.objects_vocab
+            obj_fname = '{}/val2014_36_class-fea.npy'.format(data_dir)
+            self.obj_feas = open_memmap(obj_fname, dtype='float32')
 
     def __getitem__(self, idx):
         ip = self.img_pos[idx]
         img = np.array(self.img_feas[ip])
-        obj = self.obj_idx[ip]
+        obj = np.array(self.obj_feas[ip])
         que_id = self.que_id[idx]
         que = self.que[idx]
         if hasattr(self, 'ans'):
@@ -61,8 +57,4 @@ class VQADataset(Dataset):
     @property
     def test_split(self):
         return self.codebook['test']
-
-    @property
-    def num_objs(self):
-        return len(self.objects_vocab)
 

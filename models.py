@@ -52,7 +52,7 @@ class Baseline(nn.Module):
 
 
 class ConceptAttModel(nn.Module):
-    def __init__(self, num_words, num_ans, num_objs):
+    def __init__(self, num_words, num_ans):
         super(ConceptAttModel, self).__init__()
         self.we = nn.Embedding(num_words, 300, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
@@ -61,13 +61,8 @@ class ConceptAttModel(nn.Module):
                           num_layers=1,
                           batch_first=True,
                           dropout=0.5)
-        self.obj_net = nn.Sequential(
-                nn.Embedding(num_objs, 300, padding_idx=0),
-                nn.Dropout(0.5),
-                nn.Linear(300, 512),
-                nn.Tanh())
         self.att_net = nn.Sequential(
-                nn.Conv1d(2*512, 512, kernel_size=1),
+                nn.Conv1d(512+300, 512, kernel_size=1),
                 nn.Tanh(),
                 nn.Dropout(0.5),
                 nn.Conv1d(512, 1, kernel_size=1))
@@ -89,10 +84,11 @@ class ConceptAttModel(nn.Module):
         img = img.transpose(1, 2)
         img_norm = F.normalize(img, p=2, dim=1)
 
-        obj_emb = self.obj_net(obj).transpose(1, 2)
+        obj = obj.transpose(1, 2)
+        obj_norm = F.normalize(obj, p=2, dim=1)
 
         merge_fea = torch.cat((hn.unsqueeze(dim=2).expand(bs, 512, 36),
-                               obj_emb),
+                               obj_norm),
                               dim=1)
         att_w = F.softmax(self.att_net(merge_fea).squeeze(dim=1))
         att_w_exp = att_w.unsqueeze(dim=1).expand_as(img_norm)
@@ -107,7 +103,7 @@ class ConceptAttModel(nn.Module):
 
 
 class MergeAttModel(nn.Module):
-    def __init__(self, num_words, num_ans, num_objs):
+    def __init__(self, num_words, num_ans):
         super(MergeAttModel, self).__init__()
         self.we = nn.Embedding(num_words, 300, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
@@ -116,13 +112,8 @@ class MergeAttModel(nn.Module):
                           num_layers=1,
                           batch_first=True,
                           dropout=0.5)
-        self.obj_net = nn.Sequential(
-                nn.Embedding(num_objs, 300, padding_idx=0),
-                nn.Dropout(0.5),
-                nn.Linear(300, 512),
-                nn.Tanh())
         self.att_net = nn.Sequential(
-                nn.Conv1d(2*512+2048, 512, kernel_size=1),
+                nn.Conv1d(512+2048+300, 512, kernel_size=1),
                 nn.Tanh(),
                 nn.Dropout(0.5),
                 nn.Conv1d(512, 1, kernel_size=1))
@@ -144,10 +135,11 @@ class MergeAttModel(nn.Module):
         img = img.transpose(1, 2)
         img_norm = F.normalize(img, p=2, dim=1)
 
-        obj_emb = self.obj_net(obj).transpose(1, 2)
+        obj = obj.transpose(1, 2)
+        obj_norm = F.normalize(obj, p=2, dim=1)
 
         merge_fea = torch.cat((hn.unsqueeze(dim=2).expand(bs, 512, 36),
-                               obj_emb,
+                               obj_norm,
                                img_norm),
                               dim=1)
         att_w = F.softmax(self.att_net(merge_fea).squeeze(dim=1))
@@ -163,7 +155,7 @@ class MergeAttModel(nn.Module):
 
 
 class AllAttModel(nn.Module):
-    def __init__(self, num_words, num_ans, num_objs):
+    def __init__(self, num_words, num_ans):
         super(AllAttModel, self).__init__()
         self.we = nn.Embedding(num_words, 300, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
@@ -172,19 +164,14 @@ class AllAttModel(nn.Module):
                           num_layers=1,
                           batch_first=True,
                           dropout=0.5)
-        self.obj_net = nn.Sequential(
-                nn.Embedding(num_objs, 300, padding_idx=0),
-                nn.Dropout(0.5),
-                nn.Linear(300, 512),
-                nn.Tanh())
         self.att_net = nn.Sequential(
-                nn.Conv1d(2*512+2048, 512, kernel_size=1),
+                nn.Conv1d(512+2048+300, 512, kernel_size=1),
                 nn.Tanh(),
                 nn.Dropout(0.5),
                 nn.Conv1d(512, 1, kernel_size=1))
 
         self.que_fc1 = nn.Linear(512, 512)
-        self.img_fc1 = nn.Linear(2048+512, 512)
+        self.img_fc1 = nn.Linear(2048+300, 512)
         self.pred_net = nn.Sequential(
                 nn.Linear(512, 512),
                 nn.Tanh(),
@@ -200,13 +187,14 @@ class AllAttModel(nn.Module):
         img = img.transpose(1, 2)
         img_norm = F.normalize(img, p=2, dim=1)
 
-        obj_emb = self.obj_net(obj).transpose(1, 2)
+        obj = obj.transpose(1, 2)
+        obj_norm = F.normalize(obj, p=2, dim=1)
 
         merge_fea = torch.cat((hn.unsqueeze(dim=2).expand(bs, 512, 36),
-                               obj_emb,
+                               obj_norm,
                                img_norm),
                               dim=1)
-        att_fea = torch.cat((obj_emb, img_norm), dim=1)
+        att_fea = torch.cat((obj_norm, img_norm), dim=1)
         att_w = F.softmax(self.att_net(merge_fea).squeeze(dim=1))
         att_w_exp = att_w.unsqueeze(dim=1).expand_as(att_fea)
         att_img = torch.mul(att_fea, att_w_exp).sum(dim=2)
@@ -220,7 +208,7 @@ class AllAttModel(nn.Module):
 
 
 class SplitAttModel(nn.Module):
-    def __init__(self, num_words, num_ans, num_objs):
+    def __init__(self, num_words, num_ans):
         super(SplitAttModel, self).__init__()
         self.we = nn.Embedding(num_words, 300, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
@@ -229,24 +217,19 @@ class SplitAttModel(nn.Module):
                           num_layers=1,
                           batch_first=True,
                           dropout=0.5)
-        self.obj_net = nn.Sequential(
-                nn.Embedding(num_objs, 300, padding_idx=0),
-                nn.Dropout(0.5),
-                nn.Linear(300, 512),
-                nn.Tanh())
         self.att_net1 = nn.Sequential(
                 nn.Conv1d(512 + 2048, 512, kernel_size=1),
                 nn.Tanh(),
                 nn.Dropout(0.5),
                 nn.Conv1d(512, 1, kernel_size=1))
         self.att_net2 = nn.Sequential(
-                nn.Conv1d(2 * 512, 512, kernel_size=1),
+                nn.Conv1d(512 + 300, 512, kernel_size=1),
                 nn.Tanh(),
                 nn.Dropout(0.5),
                 nn.Conv1d(512, 1, kernel_size=1))
 
         self.que_fc1 = nn.Linear(512, 512)
-        self.img_fc1 = nn.Linear(2048+512, 512)
+        self.img_fc1 = nn.Linear(2048+300, 512)
         self.pred_net = nn.Sequential(
                 nn.Linear(512, 512),
                 nn.Tanh(),
@@ -262,19 +245,20 @@ class SplitAttModel(nn.Module):
         img = img.transpose(1, 2)
         img_norm = F.normalize(img, p=2, dim=1)
 
-        obj_emb = self.obj_net(obj).transpose(1, 2)
+        obj = obj.transpose(1, 2)
+        obj_norm = F.normalize(obj, p=2, dim=1)
 
         exp_que = hn.unsqueeze(dim=2).expand(bs, 512, 36)
         img_w_fea = torch.cat((exp_que, img_norm), dim=1)
-        obj_w_fea = torch.cat((exp_que, obj_emb), dim=1)
+        obj_w_fea = torch.cat((exp_que, obj_norm), dim=1)
 
         img_att_w = F.softmax(self.att_net1(img_w_fea).squeeze(dim=1))
         img_att_w_exp = img_att_w.unsqueeze(dim=1).expand_as(img_norm)
         att_img = torch.mul(img_norm, img_att_w_exp).sum(dim=2)
 
         obj_att_w = F.softmax(self.att_net2(obj_w_fea).squeeze(dim=1))
-        obj_att_w_exp = obj_att_w.unsqueeze(dim=1).expand_as(obj_emb)
-        att_obj = torch.mul(obj_emb, obj_att_w_exp).sum(dim=2)
+        obj_att_w_exp = obj_att_w.unsqueeze(dim=1).expand_as(obj_norm)
+        att_obj = torch.mul(obj_norm, obj_att_w_exp).sum(dim=2)
 
         merge_att = torch.cat((att_img, att_obj), dim=1)
 

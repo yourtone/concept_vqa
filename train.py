@@ -98,9 +98,8 @@ def main():
 
     # model
     logger.debug('[Info] construct model, criterion and optimizer')
-    model = MergeAttModel(num_words=trn_set.num_words,
-                            num_ans=trn_set.num_ans,
-                            num_objs=trn_set.num_objs)
+    model = SplitAttModel(num_words=trn_set.num_words,
+                          num_ans=trn_set.num_ans)
 
     # initialize word embedding with pretrained
     emb = model.we.weight.data.numpy()
@@ -117,28 +116,6 @@ def main():
         if w in word_vec:
             emb[i] = word_vec[w]
     model.we.weight = nn.Parameter(torch.from_numpy(emb))
-
-    # initialize object embedding with pretrained
-    obj_emb = model.obj_net[0].weight.data.numpy()
-    for i, line in enumerate(trn_set.objects_vocab):
-        synonyms = line.split(',')
-        act_num = []
-        for label in synonyms:
-            words = label.split()
-            act = 0
-            for word in words:
-                if word in word_vec:
-                    act += 1
-            act_num.append(act)
-        act_idx = max(range(len(act_num)), key=lambda x: act_num[x])
-        vec = np.zeros((300,), dtype='float32')
-        if act_num[act_idx] > 0:
-            for word in synonyms[act_idx]:
-                if word in word_vec:
-                    vec += word_vec[word]
-            vec /= act_num[act_idx]
-            obj_emb[i] = vec
-    model.obj_net[0].weight = nn.Parameter(torch.from_numpy(obj_emb))
 
     model.cuda()
 
