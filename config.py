@@ -48,6 +48,17 @@ __C.LEARNING_RATE = 3e-4
 # weight decay
 __C.WEIGHT_DECAY = 0
 
+# source name of feature ('bottomup' or 'densecap')
+__C.FEATURE_SOURCE = 'bottomup'
+
+# number of boxes per image
+__C.NUM_BOXES = 36
+
+
+def get_feature_path(split, fea_name):
+    return '{}/image-feature/{}/{}_{}_{}.npy'.format(
+            __C.DATA_DIR, __C.FEATURE_SOURCE, split, __C.NUM_BOXES, fea_name)
+
 
 ##############################################################################
 # Copy from RCNN

@@ -6,7 +6,7 @@ from operator import itemgetter
 import h5py
 import numpy as np
 
-from config import cfg
+from config import cfg, get_feature_path
 
 
 def main():
@@ -57,7 +57,7 @@ def main():
         print(' '.join(itow[-10:]))
 
     # index image feature
-    img_ids = np.load(cfg.DATA_DIR + '/train2014_36_id.npy')
+    img_ids = np.load(get_feature_path('train2014', 'id'))
     # with open(cfg.DATA_DIR + '/train2014_36_id.npy') as f:
     #     img_ids = map(int, f.readlines())
     id_to_pos = {img_id: i for i, img_id in enumerate(img_ids)}
@@ -65,7 +65,7 @@ def main():
                     map(itemgetter('image_id'), trn_data)]
     trn_img_pos = np.array(trn_img_pos, dtype='int64')
 
-    img_ids = np.load(cfg.DATA_DIR + '/val2014_36_id.npy')
+    img_ids = np.load(get_feature_path('val2014', 'id'))
     id_to_pos = {img_id: i for i, img_id in enumerate(img_ids)}
     tst_img_pos = [id_to_pos[img_id] for img_id in
                     map(itemgetter('image_id'), tst_data)]

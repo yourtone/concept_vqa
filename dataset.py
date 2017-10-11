@@ -5,7 +5,7 @@ import numpy as np
 from numpy.lib.format import open_memmap
 from torch.utils.data import Dataset
 
-from config import cfg
+from config import cfg, get_feature_path
 
 class VQADataset(Dataset):
     def  __init__(self, split):
@@ -19,14 +19,14 @@ class VQADataset(Dataset):
             self.ans = data['ans'].value
 
         if split == 'train':
-            fea_fname = '{}/train2014_36_feature.npy'.format(cfg.DATA_DIR)
+            fea_fname = get_feature_path('train2014', 'feature')
             self.img_feas = open_memmap(fea_fname, dtype='float32')
-            obj_fname = '{}/train2014_36_class-fea.npy'.format(cfg.DATA_DIR)
+            obj_fname = get_feature_path('train2014', 'object-fea')
             self.obj_feas = open_memmap(obj_fname, dtype='float32')
         else:
-            fea_fname = '{}/val2014_36_feature.npy'.format(cfg.DATA_DIR)
+            fea_fname = get_feature_path('val2014', 'feature')
             self.img_feas = open_memmap(fea_fname, dtype='float32')
-            obj_fname = '{}/val2014_36_class-fea.npy'.format(cfg.DATA_DIR)
+            obj_fname = get_feature_path('val2014', 'object-fea')
             self.obj_feas = open_memmap(obj_fname, dtype='float32')
 
     def __getitem__(self, idx):
