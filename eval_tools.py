@@ -1,6 +1,7 @@
 import sys
-sys.path.insert(0, 'vqa-tools/PythonHelperTools/vqaTools')
-sys.path.insert(0, 'vqa-tools/PythonEvaluationTools')
+from config import cfg
+sys.path.insert(0, cfg.VQA_DIR + '/PythonHelperTools/vqaTools')
+sys.path.insert(0, cfg.VQA_DIR + '/PythonEvaluationTools')
 from vqa import VQA
 from vqaEvaluation.vqaEval import VQAEval
 
@@ -9,15 +10,15 @@ import os
 import tempfile
 from operator import itemgetter
 
-que_fname_ptn = 'vqa-tools/Questions/v2_OpenEnded_mscoco_{}_questions.json'
-ann_fname_ptn = 'vqa-tools/Annotations/v2_mscoco_{}_annotations.json'
+que_fname_ptn = '{}/Questions/v2_OpenEnded_mscoco_{}_questions.json'
+ann_fname_ptn = '{}/Annotations/v2_mscoco_{}_annotations.json'
 
-trn_que_fname = que_fname_ptn.format('train2014')
-trn_ann_fname = ann_fname_ptn.format('train2014')
+trn_que_fname = que_fname_ptn.format(cfg.VQA_DIR, 'train2014')
+trn_ann_fname = ann_fname_ptn.format(cfg.VQA_DIR, 'train2014')
 trn_vqa = VQA(trn_ann_fname, trn_que_fname)
 
-val_que_fname = que_fname_ptn.format('val2014')
-val_ann_fname = ann_fname_ptn.format('val2014')
+val_que_fname = que_fname_ptn.format(cfg.VQA_DIR, 'val2014')
+val_ann_fname = ann_fname_ptn.format(cfg.VQA_DIR, 'val2014')
 val_vqa = VQA(val_ann_fname, val_que_fname)
 
 

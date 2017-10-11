@@ -8,39 +8,22 @@ from operator import itemgetter
 import nltk
 import progressbar
 
-
-DEBUG = True
-
-
-parser = argparse.ArgumentParser(
-	description='Prepare data for training and testing')
-
-parser.add_argument('--nodebug', action='store_true',
-                    help='suppress dubug printing')
-parser.add_argument('--data-dir', default='vqa-tools',
-		    help='directory of vqa data')
+from config import cfg
 
 
 def main():
-    global parser
-    args = parser.parse_args()
-
-    if args.nodebug:
-        global DEBUG
-        DEBUG = False
-
     for split_name in ('train2014', 'val2014', 'test-dev2015', 'test2015'):
-        pairs = merge_vqa_pair(args.data_dir, split_name)
-        fname = 'data/raw-{}.json'.format(split_name)
+        pairs = merge_vqa_pair(split_name)
+        fname = '{}/raw-{}.json'.format(cfg.DATA_DIR, split_name)
         print('[Store] {}'.format(fname))
         json.dump(pairs, open(fname, 'w'))
 
 
-def merge_vqa_pair(data_dir, split_name):
+def merge_vqa_pair(split_name):
     qfname = '{}/Questions/v2_OpenEnded_mscoco_{}_questions.json'.format(
-            data_dir, split_name)
+            cfg.VQA_DIR, split_name)
     afname = '{}/Annotations/v2_mscoco_{}_annotations.json'.format(
-            data_dir, split_name)
+            cfg.VQA_DIR, split_name)
 
     print('[Load] load question data from "{}"'.format(qfname))
     vqa_pairs = json.load(open(qfname))['questions']
@@ -52,7 +35,7 @@ def merge_vqa_pair(data_dir, split_name):
         if qtext[-1] == '?':
             qtext = qtext[:-1]
         pair['question'] = nltk.word_tokenize(qtext)
-    if DEBUG:
+    if cfg.DEBUG:
         print('[Debug] question after tokenizing')
         questions = map(itemgetter('question'), vqa_pairs)
         sample_ques = random.sample(list(questions), k=5)
@@ -68,7 +51,7 @@ def merge_vqa_pair(data_dir, split_name):
             ans_freq = Counter(ans_text).most_common()
             ans_score = [(a, min(c/3, 1)) for a, c in ans_freq]
             q['answers'] = ans_score
-        if DEBUG:
+        if cfg.DEBUG:
             print('[Debug] one vqa pair')
             print(random.choice(vqa_pairs))
 

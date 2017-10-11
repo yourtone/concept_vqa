@@ -6,49 +6,19 @@ from operator import itemgetter
 import h5py
 import numpy as np
 
-
-DEBUG = True
-
-
-parser = argparse.ArgumentParser(
-	description='Prepare data for training and testing')
-
-parser.add_argument('--nodebug', action='store_true',
-                    help='suppress dubug printing')
-parser.add_argument('--train-split', action='append', default=['train2014'],
-		    metavar='SPLIT', help='name of split used in training')
-parser.add_argument('--test-split', action='append', default=['val2014'],
-		    metavar='SPLIT', help='name of split used in testing')
-parser.add_argument('--ans-min-freq', default=16, type=int, metavar='N',
-                    help='mininum frequency of answer candidates')
-parser.add_argument('--word-min-freq', default=1, type=int, metavar='N',
-                    help='mininum frequency of words')
-parser.add_argument('--que-max-len', default=14, type=int, metavar='N',
-                    help='maxinum length of questions')
+from config import cfg
 
 
 def main():
-    global parser
-    args = parser.parse_args()
-    args_str = json.dumps(vars(args), indent=2)
-    print('[Info] arguments:')
-    print(args_str)
-    with open('data/args_get_data', 'w') as f:
-        f.write(args_str)
-
-    if args.nodebug:
-        global DEBUG
-        DEBUG = False
-
     # load data
     trn_data = []
-    for split_name in args.train_split:
-        fname = 'data/raw-{}.json'.format(split_name)
+    for split_name in cfg.TRAIN_SPLITS:
+        fname = '{}/raw-{}.json'.format(cfg.DATA_DIR, split_name)
         print('[Load] {}'.format(fname))
         trn_data.extend(json.load(open(fname)))
     tst_data = []
-    for split_name in args.test_split:
-        fname = 'data/raw-{}.json'.format(split_name)
+    for split_name in cfg.TEST_SPLITS:
+        fname = '{}/raw-{}.json'.format(cfg.DATA_DIR, split_name)
         print('[Load] {}'.format(fname))
         tst_data.extend(json.load(open(fname)))
 
@@ -56,9 +26,9 @@ def main():
     ans_freq = Counter()
     for pair in trn_data:
         ans_freq.update(dict(pair['answers']))
-    itoa = [a for a, c in ans_freq.most_common() if c > args.ans_min_freq]
+    itoa = [a for a, c in ans_freq.most_common() if c > cfg.MIN_ANS_FREQ]
     atoi = {a:i for i, a in enumerate(itoa)}
-    if DEBUG:
+    if cfg.DEBUG:
         print('[Debug] top answer')
         print(' '.join(itoa[:10]))
 
@@ -73,50 +43,48 @@ def main():
     for pair in trn_data:
         word_freq.update(pair['question'])
     word_freq = word_freq.most_common()
-    itow = [w for w, c in word_freq if c > args.word_min_freq]
+    itow = [w for w, c in word_freq if c > cfg.MIN_WORD_FREQ]
     print('[Info] Reserved words count: {}/{}({:%})'
             .format(len(itow), len(word_freq), len(itow)/len(word_freq)))
     assert('<UNK>' not in itow)
     assert('<PAD>' not in itow)
     itow = ['<PAD>'] + itow + ['<UNK>']
     wtoi = {w: i for i, w in enumerate(itow)}
-    if DEBUG:
+    if cfg.DEBUG:
         print('[Debug] top word')
         print(' '.join(itow[:10]))
         print('[Debug] last word')
         print(' '.join(itow[-10:]))
 
     # index image feature
-    img_ids = np.load('data/train2014_36_id.npy')
-    # with open('data/train2014_36_id.npy') as f:
+    img_ids = np.load(cfg.DATA_DIR + '/train2014_36_id.npy')
+    # with open(cfg.DATA_DIR + '/train2014_36_id.npy') as f:
     #     img_ids = map(int, f.readlines())
     id_to_pos = {img_id: i for i, img_id in enumerate(img_ids)}
     trn_img_pos = [id_to_pos[img_id] for img_id in
                     map(itemgetter('image_id'), trn_data)]
     trn_img_pos = np.array(trn_img_pos, dtype='int64')
 
-    img_ids = np.load('data/val2014_36_id.npy')
+    img_ids = np.load(cfg.DATA_DIR + '/val2014_36_id.npy')
     id_to_pos = {img_id: i for i, img_id in enumerate(img_ids)}
     tst_img_pos = [id_to_pos[img_id] for img_id in
                     map(itemgetter('image_id'), tst_data)]
     tst_img_pos = np.array(tst_img_pos, dtype='int64')
 
     # encode question
-    trn_que, trn_que_id = encode_que(trn_data, args.que_max_len, wtoi)
+    trn_que, trn_que_id = encode_que(trn_data, wtoi)
     trn_ans = encode_ans(trn_data, atoi)
-    tst_que, tst_que_id = encode_que(tst_data, args.que_max_len, wtoi)
+    tst_que, tst_que_id = encode_que(tst_data, wtoi)
 
     # Save
     codebook = {}
     codebook['itoa'] = itoa
     codebook['itow'] = itow
-    codebook['train'] = args.train_split
-    codebook['test'] = args.test_split
-    json_fname = 'data/data.json'
+    json_fname = '{}/data.json'.format(cfg.DATA_DIR)
     print('[Store] {}'.format(json_fname))
     json.dump(codebook, open(json_fname, 'w'))
 
-    h5_fname = 'data/data.h5'
+    h5_fname = '{}/data.h5'.format(cfg.DATA_DIR)
     print('[Store] {}'.format(h5_fname))
     with h5py.File(h5_fname, 'w') as f:
         group = f.create_group('train')
@@ -131,10 +99,10 @@ def main():
         group.create_dataset('que', dtype='int64', data=tst_que)
 
 
-def encode_que(data, max_length, wtoi):
+def encode_que(data, wtoi):
     N = len(data)
     question_id = np.zeros((N,), dtype='int64')
-    que = np.zeros((N, max_length), dtype='int64')
+    que = np.zeros((N, cfg.MAX_QUESTION_LEN), dtype='int64')
 
     unk_cnt = 0
     trun_cnt = 0
@@ -144,12 +112,12 @@ def encode_que(data, max_length, wtoi):
 
         words = sample['question']
         nword = len(words)
-        if nword > max_length:
+        if nword > cfg.MAX_QUESTION_LEN:
             trun_cnt += 1
-            nword = max_length
+            nword = cfg.MAX_QUESTION_LEN
             words = words[:nword]
         for j, w in enumerate(words):
-            que[i][max_length-nword+j] = wtoi.get(w, unk_idx)
+            que[i][cfg.MAX_QUESTION_LEN-nword+j] = wtoi.get(w, unk_idx)
             unk_cnt += (0 if w in wtoi else 1)
 
     print('[Info] Truncated question count: {}'.format(trun_cnt))

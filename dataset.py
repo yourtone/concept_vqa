@@ -5,11 +5,13 @@ import numpy as np
 from numpy.lib.format import open_memmap
 from torch.utils.data import Dataset
 
-class VQADataset(Dataset):
-    def  __init__(self, data_dir, split):
-        self.codebook = json.load(open('{}/data.json'.format(data_dir)))
+from config import cfg
 
-        data = h5py.File('{}/data.h5'.format(data_dir))['/{}'.format(split)]
+class VQADataset(Dataset):
+    def  __init__(self, split):
+        self.codebook = json.load(open('{}/data.json'.format(cfg.DATA_DIR)))
+
+        data = h5py.File('{}/data.h5'.format(cfg.DATA_DIR))['/{}'.format(split)]
         self.img_pos = data['img_pos'].value
         self.que = data['que'].value
         self.que_id = data['que_id'].value
@@ -17,14 +19,14 @@ class VQADataset(Dataset):
             self.ans = data['ans'].value
 
         if split == 'train':
-            fea_fname = '{}/train2014_36_feature.npy'.format(data_dir)
+            fea_fname = '{}/train2014_36_feature.npy'.format(cfg.DATA_DIR)
             self.img_feas = open_memmap(fea_fname, dtype='float32')
-            obj_fname = '{}/train2014_36_class-fea.npy'.format(data_dir)
+            obj_fname = '{}/train2014_36_class-fea.npy'.format(cfg.DATA_DIR)
             self.obj_feas = open_memmap(obj_fname, dtype='float32')
         else:
-            fea_fname = '{}/val2014_36_feature.npy'.format(data_dir)
+            fea_fname = '{}/val2014_36_feature.npy'.format(cfg.DATA_DIR)
             self.img_feas = open_memmap(fea_fname, dtype='float32')
-            obj_fname = '{}/val2014_36_class-fea.npy'.format(data_dir)
+            obj_fname = '{}/val2014_36_class-fea.npy'.format(cfg.DATA_DIR)
             self.obj_feas = open_memmap(obj_fname, dtype='float32')
 
     def __getitem__(self, idx):
@@ -49,12 +51,4 @@ class VQADataset(Dataset):
     @property
     def num_ans(self):
         return len(self.codebook['itoa'])
-
-    @property
-    def train_split(self):
-        return self.codebook['train']
-
-    @property
-    def test_split(self):
-        return self.codebook['test']
 

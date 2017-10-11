@@ -20,29 +20,26 @@ from dataset import VQADataset
 from models import Baseline, ConceptAttModel, MergeAttModel, AllAttModel
 from models import SplitAttModel
 from eval_tools import get_eval
+from config import cfg, cfg_from_file, cfg_from_list
 
 
 parser = argparse.ArgumentParser(description='Train VQA model')
-parser.add_argument('-j', '--workers', default=0, type=int, metavar='N',
-                    help='number of data loading workers (default: 4)')
+parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
+                    help='number of data loading workers (default: 2)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=512, type=int,
-                    metavar='N', help='mini-batch size (default: 512)')
-parser.add_argument('--lr', '--learning-rate', default=0.0003, type=float,
-                    metavar='LR', help='initial learning rate')
-parser.add_argument('--weight-decay', '--wd', default=0, type=float,
-                    metavar='W', help='weight decay (default: 1e-4)')
 parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--log-dir', default='log', metavar='DIR',
-                    help='directory of log files')
+parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
+                    help='optional config file')
+parser.add_argument('--set', dest='set_cfgs', default=None,
+                    nargs=argparse.REMAINDER, help='set config keys')
 
-
-torch.manual_seed(42)
-torch.cuda.manual_seed(42)
+if cfg.USE_RANDOM_SEED:
+    torch.manual_seed(cfg.SEED)
+    torch.cuda.manual_seed(cfg.SEED)
 
 logger = logging.getLogger('vqa')
 logger.setLevel(logging.DEBUG)
@@ -52,22 +49,24 @@ def main():
     global args
     args = parser.parse_args()
     args_str = json.dumps(vars(args), indent=2)
-    print(args_str)
-    with open('data/args_train', 'w') as f:
-        f.write(args_str)
+
+    if args.cfg_file is not None:
+        cfg_from_file(args.cfg_file)
+    if args.set_cfgs is not None:
+        cfg_from_list(args.set_cfgs)
 
     # use timestamp as log subdirectory
     timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-    args.log_dir = os.path.join(args.log_dir, timestamp)
-    os.mkdir(args.log_dir)
-    shutil.copy('data/args_get_data', args.log_dir)
-    shutil.copy('data/args_train', args.log_dir)
+    cfg.LOG_DIR= os.path.join(cfg.LOG_DIR, timestamp)
+    os.mkdir(cfg.LOG_DIR)
+    json.dump(cfg, open(cfg.LOG_DIR + '/config.json', 'w'), indent=2)
+    shutil.copy('models.py', cfg.LOG_DIR)
 
     # init ploter
     ploter = Ploter(timestamp)
 
     # setting log handlers
-    fh = logging.FileHandler(os.path.join(args.log_dir, 'log'))
+    fh = logging.FileHandler(os.path.join(cfg.LOG_DIR, 'log'))
     fh.setLevel(logging.DEBUG)
     fhc = logging.FileHandler('current.log')
     fhc.setLevel(logging.DEBUG)
@@ -83,23 +82,25 @@ def main():
     logger.addHandler(fh)
     logger.addHandler(fhc)
     logger.addHandler(sh)
+    logger.debug('[Info] called with: ' + args_str)
 
     # data
     logger.debug('[Info] init dataset')
-    trn_set = VQADataset('data', 'train')
-    val_set = VQADataset('data', 'test')
+    trn_set = VQADataset('train')
+    val_set = VQADataset('test')
 
     train_loader = torch.utils.data.DataLoader(
-            trn_set, batch_size=args.batch_size, shuffle=True,
+            trn_set, batch_size=cfg.BATCH_SIZE, shuffle=True,
             num_workers=args.workers, pin_memory=True)
     val_loader = torch.utils.data.DataLoader(
-            val_set, batch_size=args.batch_size, shuffle=False,
+            val_set, batch_size=cfg.BATCH_SIZE, shuffle=False,
             num_workers=args.workers, pin_memory=True)
 
     # model
     logger.debug('[Info] construct model, criterion and optimizer')
     model = SplitAttModel(num_words=trn_set.num_words,
                           num_ans=trn_set.num_ans)
+    logger.debug('[Info] model name: ' + model.__class__.__name__)
 
     # initialize word embedding with pretrained
     emb = model.we.weight.data.numpy()
@@ -120,8 +121,8 @@ def main():
     model.cuda()
 
     criterion = nn.CrossEntropyLoss().cuda()
-    optimizer = torch.optim.RMSprop(model.parameters(), args.lr,
-                                    weight_decay=args.weight_decay)
+    optimizer = torch.optim.RMSprop(model.parameters(), cfg.LEARNING_RATE,
+                                    weight_decay=cfg.WEIGHT_DECAY)
     cudnn.benchmark = True
 
 
@@ -149,7 +150,7 @@ def main():
 
         # save checkpoint
         cp_fname = 'checkpoint-{:03}.pth.tar'.format(epoch)
-        cp_path = os.path.join(args.log_dir, cp_fname)
+        cp_path = os.path.join(cfg.LOG_DIR, cp_fname)
         state = {
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
@@ -158,7 +159,7 @@ def main():
             }
         torch.save(state, cp_path)
         if is_best:
-            best_path = os.path.join(args.log_dir, 'model-best.pth.tar')
+            best_path = os.path.join(cfg.LOG_DIR, 'model-best.pth.tar')
             shutil.copyfile(cp_path, best_path)
 
 
@@ -220,10 +221,10 @@ def validate(val_loader, model, criterion, epoch):
     vqa_eval = get_eval(results, 'val2014')
 
     # save result and accuracy
-    result_file = os.path.join(args.log_dir,
+    result_file = os.path.join(cfg.LOG_DIR,
                                'result-{:03}.json'.format(epoch))
     json.dump(results, open(result_file, 'w'))
-    acc_file = os.path.join(args.log_dir,
+    acc_file = os.path.join(cfg.LOG_DIR,
                             'accuracy-{:03}.json'.format(epoch))
     json.dump(vqa_eval.accuracy, open(acc_file, 'w'))
 
