@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Baseline(nn.Module):
+class V2V(nn.Module):
     def __init__(self, num_words, num_ans):
-        super(Baseline, self).__init__()
+        super(V2V, self).__init__()
         self.we = nn.Embedding(num_words, 300, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
         self.gru = nn.GRU(input_size=300,
@@ -51,9 +51,9 @@ class Baseline(nn.Module):
         return score
 
 
-class ConceptAttModel(nn.Module):
+class T2V(nn.Module):
     def __init__(self, num_words, num_ans):
-        super(ConceptAttModel, self).__init__()
+        super(T2V, self).__init__()
         self.we = nn.Embedding(num_words, 300, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
         self.gru = nn.GRU(input_size=300,
@@ -102,9 +102,9 @@ class ConceptAttModel(nn.Module):
         return score
 
 
-class MergeAttModel(nn.Module):
+class TV2V(nn.Module):
     def __init__(self, num_words, num_ans):
-        super(MergeAttModel, self).__init__()
+        super(TV2V, self).__init__()
         self.we = nn.Embedding(num_words, 300, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
         self.gru = nn.GRU(input_size=300,
@@ -154,9 +154,9 @@ class MergeAttModel(nn.Module):
         return score
 
 
-class AllAttModel(nn.Module):
+class TV2TV(nn.Module):
     def __init__(self, num_words, num_ans):
-        super(AllAttModel, self).__init__()
+        super(TV2TV, self).__init__()
         self.we = nn.Embedding(num_words, 300, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
         self.gru = nn.GRU(input_size=300,
@@ -207,9 +207,9 @@ class AllAttModel(nn.Module):
         return score
 
 
-class SplitAttModel(nn.Module):
+class T2TV2V(nn.Module):
     def __init__(self, num_words, num_ans):
-        super(SplitAttModel, self).__init__()
+        super(T2TV2V, self).__init__()
         self.we = nn.Embedding(num_words, 300, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
         self.gru = nn.GRU(input_size=300,
