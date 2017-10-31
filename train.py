@@ -100,23 +100,23 @@ def main():
             num_workers=args.workers, pin_memory=True)
 
     # model
+    emb_size = 300
+    if cfg.WORD_EMBEDDINGS:
+        word_vec = merge_embeddings(cfg.WORD_EMBEDDINGS)
+        aword = next(iter(word_vec))
+        emb_size = len(word_vec[aword])
+
     logger.debug('[Info] construct model, criterion and optimizer')
     model = getattr(models, args.model)(
-            num_words=trn_set.num_words, num_ans=trn_set.num_ans)
+            num_words=trn_set.num_words,
+            num_ans=trn_set.num_ans,
+            emb_size=emb_size)
     logger.debug('[Info] model name: ' + args.model)
 
     # initialize word embedding with pretrained
-    if cfg.WORD_EMBEDDING:
+    if cfg.WORD_EMBEDDINGS:
         emb = model.we.weight.data.numpy()
         words = trn_set.codebook['itow']
-        emb_path = '{}/word-embedding/{}'.format(cfg.DATA_DIR, cfg.WORD_EMBEDDING)
-        with open(emb_path) as f:
-            word_vec_txt = [l.strip().split(' ', 1) for l in f.readlines()]
-        vocab, vecs_txt = zip(*word_vec_txt)
-        # fromstring faster than loadtxt
-        vecs = np.fromstring(' '.join(vecs_txt), dtype='float32', sep=' ')
-        vecs = vecs.reshape(-1, 300)
-        word_vec = dict(zip(vocab, vecs))
         assert '<PAD>' not in word_vec
         for i, w in enumerate(words):
             if w in word_vec:
@@ -166,6 +166,33 @@ def main():
         if is_best:
             best_path = os.path.join(cfg.LOG_DIR, 'model-best.pth.tar')
             shutil.copyfile(cp_path, best_path)
+
+
+def merge_embeddings(embedding_names):
+    names = embedding_names.split('+')
+    name = names[0]
+    vocab, vecs = load_embeddings(name)
+    if len(names) > 1:
+        vecs_list = [vecs]
+        for name in names[1:]:
+            _, vecs = load_embeddings(name)
+            # the order of vocab in glove is the same
+            vecs_list.append(vecs)
+            vecs = np.hstack(vecs_list)
+    return dict(zip(vocab, vecs))
+
+
+def load_embeddings(name):
+    emb_path = '{}/word-embedding/{}'.format(cfg.DATA_DIR, name)
+    with open(emb_path) as f:
+        word_vec_txt = [l.strip().split(' ', 1) for l in f.readlines()]
+    vocab, vecs_txt = zip(*word_vec_txt)
+    # infer vector dimention
+    vec_size = len(vecs_txt[0].split())
+    # fromstring faster than loadtxt
+    vecs = np.fromstring(' '.join(vecs_txt), dtype='float32', sep=' ')
+    vecs = vecs.reshape(-1, vec_size)
+    return vocab, vecs
 
 
 def train(train_loader, model, criterion, optimizer, epoch):

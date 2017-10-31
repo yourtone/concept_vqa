@@ -55,7 +55,7 @@ __C.FEATURE_SOURCE = 'bottomup'
 __C.NUM_BOXES = 36
 
 # name of pretrained embedding
-__C.WORD_EMBEDDING = 'glove.6B.300d.txt'
+__C.WORD_EMBEDDINGS = 'glove.6B.300d.txt'
 
 
 def get_feature_path(split, fea_name):

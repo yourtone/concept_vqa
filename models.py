@@ -4,11 +4,11 @@ import torch.nn.functional as F
 
 
 class V2V(nn.Module):
-    def __init__(self, num_words, num_ans):
+    def __init__(self, num_words, num_ans, emb_size):
         super(V2V, self).__init__()
-        self.we = nn.Embedding(num_words, 300, padding_idx=0)
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
-        self.gru = nn.GRU(input_size=300,
+        self.gru = nn.GRU(input_size=emb_size,
                           hidden_size=512,
                           num_layers=1,
                           batch_first=True,
@@ -52,11 +52,11 @@ class V2V(nn.Module):
 
 
 class T2V(nn.Module):
-    def __init__(self, num_words, num_ans):
+    def __init__(self, num_words, num_ans, emb_size):
         super(T2V, self).__init__()
-        self.we = nn.Embedding(num_words, 300, padding_idx=0)
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
-        self.gru = nn.GRU(input_size=300,
+        self.gru = nn.GRU(input_size=emb_size,
                           hidden_size=512,
                           num_layers=1,
                           batch_first=True,
@@ -103,11 +103,11 @@ class T2V(nn.Module):
 
 
 class TV2V(nn.Module):
-    def __init__(self, num_words, num_ans):
+    def __init__(self, num_words, num_ans, emb_size):
         super(TV2V, self).__init__()
-        self.we = nn.Embedding(num_words, 300, padding_idx=0)
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
-        self.gru = nn.GRU(input_size=300,
+        self.gru = nn.GRU(input_size=emb_size,
                           hidden_size=512,
                           num_layers=1,
                           batch_first=True,
@@ -155,11 +155,11 @@ class TV2V(nn.Module):
 
 
 class TV2TV(nn.Module):
-    def __init__(self, num_words, num_ans):
+    def __init__(self, num_words, num_ans, emb_size):
         super(TV2TV, self).__init__()
-        self.we = nn.Embedding(num_words, 300, padding_idx=0)
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
-        self.gru = nn.GRU(input_size=300,
+        self.gru = nn.GRU(input_size=emb_size,
                           hidden_size=512,
                           num_layers=1,
                           batch_first=True,
@@ -208,11 +208,11 @@ class TV2TV(nn.Module):
 
 
 class T2TV2V(nn.Module):
-    def __init__(self, num_words, num_ans):
+    def __init__(self, num_words, num_ans, emb_size):
         super(T2TV2V, self).__init__()
-        self.we = nn.Embedding(num_words, 300, padding_idx=0)
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
-        self.gru = nn.GRU(input_size=300,
+        self.gru = nn.GRU(input_size=emb_size,
                           hidden_size=512,
                           num_layers=1,
                           batch_first=True,
@@ -271,11 +271,11 @@ class T2TV2V(nn.Module):
 
 
 class MultiAttModel(nn.Module):
-    def __init__(self, num_words, num_ans):
+    def __init__(self, num_words, num_ans, emb_size):
         super(MultiAttModel, self).__init__()
-        self.we = nn.Embedding(num_words, 300, padding_idx=0)
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
-        self.gru = nn.GRU(input_size=300,
+        self.gru = nn.GRU(input_size=emb_size,
                           hidden_size=512,
                           num_layers=1,
                           batch_first=True,
