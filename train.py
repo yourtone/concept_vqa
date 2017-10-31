@@ -34,6 +34,8 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--model', '-m', default='Baseline',
                     help='name of the model')
+parser.add_argument('--gpu_id', default=0, type=int, metavar='N',
+                    help='index of the gpu')
 parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
                     help='optional config file')
 parser.add_argument('--set', dest='set_cfgs', default=None,
@@ -51,6 +53,8 @@ def main():
     global args
     args = parser.parse_args()
     args_str = json.dumps(vars(args), indent=2)
+
+    torch.cuda.set_device(args.gpu_id)
 
     if args.cfg_file is not None:
         cfg_from_file(args.cfg_file)
