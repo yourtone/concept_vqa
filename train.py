@@ -36,6 +36,10 @@ parser.add_argument('--model', '-m', default='Baseline',
                     help='name of the model')
 parser.add_argument('--gpu_id', default=0, type=int, metavar='N',
                     help='index of the gpu')
+parser.add_argument('--lr-decay-start', default=40, metavar='N',
+                    help='epoch number starting decay learning rate')
+parser.add_argument('--lr-decay-factor', default=0.8, metavar='FLOAT',
+                    help='learning rate decay factor for every 10 epochs')
 parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
                     help='optional config file')
 parser.add_argument('--set', dest='set_cfgs', default=None,
@@ -142,13 +146,14 @@ def main():
     best_acc = 0
     best_epoch = -1
     for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(optimizer, epoch)
+        lr = adjust_learning_rate(optimizer, epoch)
 
         loss = train(train_loader, model, criterion, optimizer, epoch)
         acc = validate(val_loader, model, criterion, epoch)
 
         ploter.append(epoch, loss, 'train-loss')
         ploter.append(epoch, acc, 'val-acc')
+        ploter.append(epoch, lr, 'lr')
 
         if acc > best_acc:
             is_best = True
@@ -301,7 +306,11 @@ class AverageMeter(object):
 
 
 def adjust_learning_rate(optimizer, epoch):
-    pass
+    exponent = max(0, (epoch - args.lr_decay_start) // 10 + 1)
+    lr = cfg.LEARNING_RATE * (args.lr_decay_factor ** exponent)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+    return lr
 
 
 class Ploter(object):
