@@ -55,6 +55,7 @@ def main():
     args_str = json.dumps(vars(args), indent=2)
 
     torch.cuda.set_device(args.gpu_id)
+    logger.debug('[Info] use gpu: {}'.format(torch.cuda.current_device()))
 
     if args.cfg_file is not None:
         cfg_from_file(args.cfg_file)
@@ -92,7 +93,7 @@ def main():
 
     # data
     logger.debug('[Info] init dataset')
-    needT = args.model != 'Baseline'
+    needT = args.model not in ('V2V', 'MultiAttModel')
     trn_set = VQADataset('train', needT)
     val_set = VQADataset('test', needT)
 
@@ -109,6 +110,7 @@ def main():
         word_vec = merge_embeddings(cfg.WORD_EMBEDDINGS)
         aword = next(iter(word_vec))
         emb_size = len(word_vec[aword])
+        logger.debug('[Info] embedding size: {}'.format(emb_size))
 
     logger.debug('[Info] construct model, criterion and optimizer')
     model = getattr(models, args.model)(
@@ -188,6 +190,7 @@ def merge_embeddings(embedding_names):
 
 def load_embeddings(name):
     emb_path = '{}/word-embedding/{}'.format(cfg.DATA_DIR, name)
+    logger.debug('[Load] ' + emb_path)
     with open(emb_path) as f:
         word_vec_txt = [l.strip().split(' ', 1) for l in f.readlines()]
     vocab, vecs_txt = zip(*word_vec_txt)
@@ -211,12 +214,12 @@ def train(train_loader, model, criterion, optimizer, epoch):
     for i, sample in enumerate(train_loader):
         data_time.update(time.time() - end)
 
-        sample_var = (Variable(d).cuda() for d in sample[1:])
+        sample_var = [Variable(d).cuda() for d in list(sample)[1:]]
 
         score = model(*sample_var[:-1])
         loss = criterion(score, sample_var[-1])
 
-        losses.update(loss.data[0], img.size(0))
+        losses.update(loss.data[0], sample[0].size(0))
 
         optimizer.zero_grad()
         loss.backward()
@@ -245,11 +248,11 @@ def validate(val_loader, model, criterion, epoch):
     bar = progressbar.ProgressBar()
     # sample: (que_id, img, que, [obj])
     for sample in bar(val_loader):
-        sample_var = (Variable(d).cuda() for d in sample[1:])
+        sample_var = [Variable(d).cuda() for d in list(sample)[1:]]
 
         score = model(*sample_var)
 
-        results.extend(format_result(que_id, score, itoa))
+        results.extend(format_result(sample[0], score, itoa))
 
     vqa_eval = get_eval(results, 'val2014')
 
