@@ -58,8 +58,6 @@ def main():
 
     # index image feature
     img_ids = np.load(get_feature_path('train2014', 'id'))
-    # with open(cfg.DATA_DIR + '/train2014_36_id.npy') as f:
-    #     img_ids = map(int, f.readlines())
     id_to_pos = {img_id: i for i, img_id in enumerate(img_ids)}
     trn_img_pos = [id_to_pos[img_id] for img_id in
                     map(itemgetter('image_id'), trn_data)]

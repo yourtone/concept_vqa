@@ -54,6 +54,9 @@ __C.FEATURE_SOURCE = 'bottomup'
 # number of boxes per image
 __C.NUM_BOXES = 36
 
+# name of pretrained embedding
+__C.WORD_EMBEDDING = 'glove.6B.300d.txt'
+
 
 def get_feature_path(split, fea_name):
     return '{}/image-feature/{}/{}_{}_{}.npy'.format(

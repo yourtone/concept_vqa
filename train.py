@@ -14,11 +14,11 @@ import torch.optim
 import torch.utils.data
 import progressbar
 import numpy as np
+from torch.autograd import Variable
 from visdom import Visdom
 
+import models
 from dataset import VQADataset
-from models import Baseline, ConceptAttModel, MergeAttModel, AllAttModel
-from models import SplitAttModel
 from eval_tools import get_eval
 from config import cfg, cfg_from_file, cfg_from_list
 
@@ -26,12 +26,14 @@ from config import cfg, cfg_from_file, cfg_from_list
 parser = argparse.ArgumentParser(description='Train VQA model')
 parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
                     help='number of data loading workers (default: 2)')
-parser.add_argument('--epochs', default=90, type=int, metavar='N',
+parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
+parser.add_argument('--model', '-m', default='Baseline',
+                    help='name of the model')
 parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
                     help='optional config file')
 parser.add_argument('--set', dest='set_cfgs', default=None,
@@ -86,8 +88,9 @@ def main():
 
     # data
     logger.debug('[Info] init dataset')
-    trn_set = VQADataset('train')
-    val_set = VQADataset('test')
+    needT = args.model != 'Baseline'
+    trn_set = VQADataset('train', needT)
+    val_set = VQADataset('test', needT)
 
     train_loader = torch.utils.data.DataLoader(
             trn_set, batch_size=cfg.BATCH_SIZE, shuffle=True,
@@ -98,25 +101,27 @@ def main():
 
     # model
     logger.debug('[Info] construct model, criterion and optimizer')
-    model = SplitAttModel(num_words=trn_set.num_words,
-                          num_ans=trn_set.num_ans)
-    logger.debug('[Info] model name: ' + model.__class__.__name__)
+    model = getattr(models, args.model)(
+            num_words=trn_set.num_words, num_ans=trn_set.num_ans)
+    logger.debug('[Info] model name: ' + args.model)
 
     # initialize word embedding with pretrained
-    emb = model.we.weight.data.numpy()
-    words = trn_set.codebook['itow']
-    with open('data/word-embedding/glove.6B.300d.txt') as f:
-        word_vec_txt = [l.strip().split(' ', 1) for l in f.readlines()]
-    vocab, vecs_txt = zip(*word_vec_txt)
-    # fromstring faster than loadtxt
-    vecs = np.fromstring(' '.join(vecs_txt), dtype='float32', sep=' ')
-    vecs = vecs.reshape(-1, 300)
-    word_vec = dict(zip(vocab, vecs))
-    assert '<PAD>' not in word_vec
-    for i, w in enumerate(words):
-        if w in word_vec:
-            emb[i] = word_vec[w]
-    model.we.weight = nn.Parameter(torch.from_numpy(emb))
+    if cfg.WORD_EMBEDDING:
+        emb = model.we.weight.data.numpy()
+        words = trn_set.codebook['itow']
+        emb_path = '{}/word-embedding/{}'.format(cfg.DATA_DIR, cfg.WORD_EMBEDDING)
+        with open(emb_path) as f:
+            word_vec_txt = [l.strip().split(' ', 1) for l in f.readlines()]
+        vocab, vecs_txt = zip(*word_vec_txt)
+        # fromstring faster than loadtxt
+        vecs = np.fromstring(' '.join(vecs_txt), dtype='float32', sep=' ')
+        vecs = vecs.reshape(-1, 300)
+        word_vec = dict(zip(vocab, vecs))
+        assert '<PAD>' not in word_vec
+        for i, w in enumerate(words):
+            if w in word_vec:
+                emb[i] = word_vec[w]
+        model.we.weight = nn.Parameter(torch.from_numpy(emb))
 
     model.cuda()
 
@@ -171,16 +176,14 @@ def train(train_loader, model, criterion, optimizer, epoch):
     model.train()
 
     end = time.time()
-    for i, (img, que_id, que, obj, ans) in enumerate(train_loader):
+    # sample: (que_id, img, que, [obj], ans)
+    for i, sample in enumerate(train_loader):
         data_time.update(time.time() - end)
 
-        img_var = torch.autograd.Variable(img).cuda()
-        que_var = torch.autograd.Variable(que).cuda()
-        obj_var = torch.autograd.Variable(obj).cuda()
-        ans_var = torch.autograd.Variable(ans).cuda()
+        sample_var = (Variable(d).cuda() for d in sample[1:])
 
-        score = model(img_var, que_var, obj_var)
-        loss = criterion(score, ans_var)
+        score = model(*sample_var[:-1])
+        loss = criterion(score, sample_var[-1])
 
         losses.update(loss.data[0], img.size(0))
 
@@ -209,12 +212,11 @@ def validate(val_loader, model, criterion, epoch):
     results = []
     end = time.time()
     bar = progressbar.ProgressBar()
-    for img, que_id, que, obj in bar(val_loader):
-        img_var = torch.autograd.Variable(img).cuda()
-        que_var = torch.autograd.Variable(que).cuda()
-        obj_var = torch.autograd.Variable(obj).cuda()
+    # sample: (que_id, img, que, [obj])
+    for sample in bar(val_loader):
+        sample_var = (Variable(d).cuda() for d in sample[1:])
 
-        score = model(img_var, que_var, obj_var)
+        score = model(*sample_var)
 
         results.extend(format_result(que_id, score, itoa))
 

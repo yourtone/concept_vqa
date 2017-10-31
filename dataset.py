@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 from config import cfg, get_feature_path
 
 class VQADataset(Dataset):
-    def  __init__(self, split):
+    def  __init__(self, split, needT=False):
         self.codebook = json.load(open('{}/data.json'.format(cfg.DATA_DIR)))
 
         data = h5py.File('{}/data.h5'.format(cfg.DATA_DIR))['/{}'.format(split)]
@@ -21,25 +21,36 @@ class VQADataset(Dataset):
         if split == 'train':
             fea_fname = get_feature_path('train2014', 'feature')
             self.img_feas = open_memmap(fea_fname, dtype='float32')
-            obj_fname = get_feature_path('train2014', 'object-fea')
-            self.obj_feas = open_memmap(obj_fname, dtype='float32')
+            if needT:
+                obj_fname = get_feature_path('train2014', 'class-fea')
+                self.obj_feas = np.load(obj_fname)
         else:
             fea_fname = get_feature_path('val2014', 'feature')
             self.img_feas = open_memmap(fea_fname, dtype='float32')
-            obj_fname = get_feature_path('val2014', 'object-fea')
-            self.obj_feas = open_memmap(obj_fname, dtype='float32')
+            if needT:
+                obj_fname = get_feature_path('val2014', 'class-fea')
+                self.obj_feas = np.load(obj_fname)
+
+        self.needT = needT
 
     def __getitem__(self, idx):
         ip = self.img_pos[idx]
         img = np.array(self.img_feas[ip])
-        obj = np.array(self.obj_feas[ip])
+        if self.needT:
+            obj = np.array(self.obj_feas[ip])
         que_id = self.que_id[idx]
         que = self.que[idx]
         if hasattr(self, 'ans'):
             ans = self.ans[idx]
-            return img, que_id, que, obj, ans
+            if self.needT:
+                return que_id, img, que, obj, ans
+            else:
+                return que_id, img, que, ans
         else:
-            return img, que_id, que, obj
+            if self.needT:
+                return que_id, img, que, obj
+            else:
+                return que_id, img, que
 
     def __len__(self):
         return self.que.shape[0]
