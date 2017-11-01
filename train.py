@@ -36,9 +36,9 @@ parser.add_argument('--model', '-m', default='Baseline',
                     help='name of the model')
 parser.add_argument('--gpu_id', default=0, type=int, metavar='N',
                     help='index of the gpu')
-parser.add_argument('--lr-decay-start', default=40, metavar='N',
+parser.add_argument('--lr-decay-start', default=40, type=int, metavar='N',
                     help='epoch number starting decay learning rate')
-parser.add_argument('--lr-decay-factor', default=0.8, metavar='FLOAT',
+parser.add_argument('--lr-decay-factor', default=0.8, type=float, metavar='FLOAT',
                     help='learning rate decay factor for every 10 epochs')
 parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
                     help='optional config file')
