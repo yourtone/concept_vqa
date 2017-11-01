@@ -58,9 +58,6 @@ def main():
     args = parser.parse_args()
     args_str = json.dumps(vars(args), indent=2)
 
-    torch.cuda.set_device(args.gpu_id)
-    logger.debug('[Info] use gpu: {}'.format(torch.cuda.current_device()))
-
     if args.cfg_file is not None:
         cfg_from_file(args.cfg_file)
     if args.set_cfgs is not None:
@@ -94,6 +91,12 @@ def main():
     logger.addHandler(fhc)
     logger.addHandler(sh)
     logger.debug('[Info] called with: ' + args_str)
+
+    logger.debug('[Info] timestamp: ' + timestamp)
+
+    # select device
+    torch.cuda.set_device(args.gpu_id)
+    logger.debug('[Info] use gpu: {}'.format(torch.cuda.current_device()))
 
     # data
     logger.debug('[Info] init dataset')
