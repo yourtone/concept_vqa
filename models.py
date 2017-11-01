@@ -345,3 +345,88 @@ class MultiAttModel(nn.Module):
 
         return score
 
+
+class GatedTanh(nn.Module):
+    def __init__(self, in_size, out_size, bias=True, use_conv=False):
+        super(GatedTanh, self).__init__()
+        if use_conv:
+            self.fc = nn.Conv1d(in_size, out_size, kernel_size=1, bias=bias)
+            self.gate_fc = nn.Conv1d(in_size, out_size, kernel_size=1, bias=bias)
+        else:
+            self.fc = nn.Linear(in_size, out_size, bias=bias)
+            self.gate_fc = nn.Linear(in_size, out_size, bias=bias)
+
+    def forward(self, input):
+        return F.tanh(self.fc(input)) * F.sigmoid(self.gate_fc(input))
+
+
+class GatedMultiAttModel(nn.Module):
+    def __init__(self, num_words, num_ans, emb_size):
+        super(GatedMultiAttModel, self).__init__()
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
+        self.wedp = nn.Dropout(0.5)
+        self.gru = nn.GRU(input_size=emb_size,
+                          hidden_size=512,
+                          num_layers=1,
+                          batch_first=True,
+                          dropout=0.5)
+        self.que_fc = nn.Sequential(
+                nn.Dropout(0.5),
+                GatedTanh(512, 2*512))
+
+        self.img_same_net = nn.Sequential(
+                nn.Dropout(0.5),
+                GatedTanh(2048, 512, use_conv=True))
+        self.que_same_net = nn.Sequential(
+                nn.Dropout(0.5),
+                GatedTanh(512, 512))
+
+        self.att_w_fc = nn.Conv1d(512, 2, kernel_size=1)
+
+        self.att_img1_fc = nn.Sequential(
+                nn.Dropout(0.5),
+                GatedTanh(2048, 512))
+        self.att_img2_fc = nn.Sequential(
+                nn.Dropout(0.5),
+                GatedTanh(2048, 512))
+
+        self.pred_net = nn.Sequential(
+                nn.Dropout(0.5),
+                nn.Linear(2*512, num_ans))
+
+    def forward(self, img, que):
+        bs = img.size()[0]
+        emb = self.wedp(self.we(que))
+        _, hn = self.gru(emb)
+        hn = hn.squeeze(dim=0)
+
+        # final question feature
+        que_fea = self.que_fc(hn)
+
+        # final image feature
+        img = img.transpose(1, 2)
+        img_norm = F.normalize(img, p=2, dim=1)
+
+        ## attention
+        img_same = self.img_same_net(img_norm)  # b x 512 x 36
+        que_same = self.que_same_net(hn).unsqueeze(dim=2).expand(bs, 512, 36)
+        att_w1, att_w2 = self.att_w_fc(torch.mul(img_same, que_same)).split(1, dim=1)
+
+        att_w1 = F.softmax(att_w1.squeeze(dim=1))
+        att_w1_exp = att_w1.unsqueeze(dim=1).expand_as(img_norm)
+        att_img1 = torch.mul(img_norm, att_w1_exp).sum(dim=2)
+        att_img1 = self.att_img1_fc(att_img1)
+
+        att_w2 = F.softmax(att_w2.squeeze(dim=1))
+        att_w2_exp = att_w2.unsqueeze(dim=1).expand_as(img_norm)
+        att_img2 = torch.mul(img_norm, att_w2_exp).sum(dim=2)
+        att_img2 = self.att_img2_fc(att_img2)
+
+        img_fea = torch.cat((att_img1, att_img2), dim=1)
+
+        # predict answer
+        mul_fea = torch.mul(que_fea, img_fea)
+        score = self.pred_net(mul_fea)
+
+        return score
+

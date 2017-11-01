@@ -32,6 +32,8 @@ parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
+parser.add_argument('--save-freq', default=1, type=int, metavar='N',
+                    help='frequency of saving checkpoint')
 parser.add_argument('--model', '-m', default='Baseline',
                     help='name of the model')
 parser.add_argument('--gpu_id', default=0, type=int, metavar='N',
@@ -100,7 +102,7 @@ def main():
 
     # data
     logger.debug('[Info] init dataset')
-    needT = args.model not in ('V2V', 'MultiAttModel')
+    needT = args.model not in ('V2V', 'MultiAttModel', 'GatedMultiAttModel')
     trn_set = VQADataset('train', needT)
     val_set = VQADataset('test', needT)
 
@@ -176,10 +178,11 @@ def main():
             'best_acc': best_acc,
             'optimizer': optimizer.state_dict()
             }
-        torch.save(state, cp_path)
+        if epoch % args.save_freq == 0:
+            torch.save(state, cp_path)
         if is_best:
             best_path = os.path.join(cfg.LOG_DIR, 'model-best.pth.tar')
-            shutil.copyfile(cp_path, best_path)
+            torch.save(state, best_path)
 
 
 def merge_embeddings(embedding_names):
