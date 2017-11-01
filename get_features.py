@@ -21,9 +21,10 @@ def decode(data, dtype):
     return np.frombuffer(data_bytes, dtype=dtype)
 
 
-def read_tsv(fname, split):
+def read_tsv(fname):
     FIELDNAMES = ['image_id', 'image_w','image_h','num_boxes', 'boxes',
-                  'cls_prob', 'attr_prob', 'cls_idx', 'attr_idx', 'features']
+                  'cls_prob', 'attr_prob', 'cls_idx', 'attr_idx', 'features',
+                  'roi_feas']
     img_ids = []
     boxes = []
     cls_probs = []
@@ -31,6 +32,7 @@ def read_tsv(fname, split):
     cls_ids = []
     attr_ids = []
     features = []
+    roi_feas = []
     with open(fname) as tsv_in_file:
         reader = csv.DictReader(tsv_in_file, delimiter='\t', fieldnames = FIELDNAMES)
         bar = progressbar.ProgressBar()
@@ -42,6 +44,7 @@ def read_tsv(fname, split):
             cls_ids.append(decode(item['cls_idx'], 'int64'))
             attr_ids.append(decode(item['attr_idx'], 'int64'))
             features.append(decode(item['features'], 'float32').reshape(36, -1))
+            roi_feas.append(decode(item['roi_feas'], 'float32').reshape(36, -1))
 
     return (np.array(img_ids, dtype='int64'),
             np.array(boxes, dtype='float32'),
@@ -49,14 +52,15 @@ def read_tsv(fname, split):
             np.array(attr_probs, dtype='float32'),
             np.array(cls_ids, dtype='int64'),
             np.array(attr_ids, dtype='int64'),
-            np.array(features, dtype='float32'))
+            np.array(features, dtype='float32'),
+            np.array(roi_feas, dtype='float32'))
 
 
 if __name__ == '__main__':
     args = parser.parse_args()
     field_names = ['id', 'box', 'class-prob', 'attribute-prob',
-                   'class', 'attribute', 'feature']
-    results = read_tsv(args.fname, args.split)
+                   'class', 'attribute', 'feature', 'roi-fea']
+    results = read_tsv(args.fname)
     for name, data in zip(field_names, results):
-        np.save('data/n_{}_36_{}.npy'.format(args.split, name), data)
+        np.save('data/{}_36_{}.npy'.format(args.split, name), data)
 
