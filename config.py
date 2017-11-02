@@ -57,6 +57,9 @@ __C.NUM_BOXES = 36
 # name of pretrained embedding
 __C.WORD_EMBEDDINGS = 'glove.6B.300d.txt'
 
+# Use soft sigmoid loss
+__C.SOFT_LOSS = True
+
 
 def get_feature_path(split, fea_name):
     return '{}/image-feature/{}/{}_{}_{}.npy'.format(

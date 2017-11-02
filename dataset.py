@@ -42,6 +42,8 @@ class VQADataset(Dataset):
         que = self.que[idx]
         if hasattr(self, 'ans'):
             ans = self.ans[idx]
+            if cfg.SOFT_LOSS:
+                ans = ans.astype('float32')
             if self.needT:
                 return que_id, img, que, obj, ans
             else:
