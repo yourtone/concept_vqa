@@ -70,7 +70,8 @@ def main():
     cfg.LOG_DIR= os.path.join(cfg.LOG_DIR, timestamp)
     os.mkdir(cfg.LOG_DIR)
     json.dump(cfg, open(cfg.LOG_DIR + '/config.json', 'w'), indent=2)
-    shutil.copy('models.py', cfg.LOG_DIR)
+    model_group_name, model_name = args.model.split('/')
+    shutil.copy('models/' + model_group_name + '.py', cfg.LOG_DIR)
 
     # init ploter
     ploter = Ploter(timestamp)
@@ -102,7 +103,6 @@ def main():
 
     # data
     logger.debug('[Info] init dataset')
-    model_group_name, model_name = args.model.split('/')
     trn_set = VQADataset('train', model_group_name)
     val_set = VQADataset('test', model_group_name)
 
@@ -134,10 +134,27 @@ def main():
         emb = model.we.weight.data.numpy()
         words = trn_set.codebook['itow']
         assert '<PAD>' not in word_vec
+        fill_cnt = 0
         for i, w in enumerate(words):
             if w in word_vec:
                 emb[i] = word_vec[w]
+                fill_cnt += 1
+        logger.debug('[debug] word embedding filling count: {}/{}'
+                .format(fill_cnt, len(words)))
         model.we.weight = nn.Parameter(torch.from_numpy(emb))
+
+        if model_group_name == 'onehot_label':
+            # initialize object embedding with pretrained
+            obj_emb = model.obj_net[0].weight.data.numpy()
+            fill_cnt = 0
+            for i, line in enumerate(trn_set.objects_vocab):
+                avail, vec = get_class_embedding(line, word_vec, emb_size)
+                if avail:
+                    obj_emb[i] = vec
+                    fill_cnt += 1
+            logger.debug('[debug] class embedding filling count: {}/{}'
+                    .format(fill_cnt, len(trn_set.objects_vocab)))
+            model.obj_net[0].weight = nn.Parameter(torch.from_numpy(obj_emb))
 
     model.cuda()
 
@@ -184,6 +201,26 @@ def main():
         if is_best:
             best_path = os.path.join(cfg.LOG_DIR, 'model-best.pth.tar')
             torch.save(state, best_path)
+
+
+def get_class_embedding(class_name, word_vec, emb_size):
+    synonyms = class_name.split(',')
+    act_num = []
+    act_ratio = []
+    for label in synonyms:
+        words = label.split()
+        act = sum([1 for word in words if word in word_vec])
+        act_num.append(act)
+        act_ratio.append(act / len(words))
+    act_idx = max(range(len(act_num)), key=lambda x: act_ratio[x])
+    vec = np.zeros((emb_size,), dtype='float32')
+    pretrained_avail = act_num[act_idx] > 0
+    if pretrained_avail:
+        for word in synonyms[act_idx].split():
+            if word in word_vec:
+                vec += word_vec[word]
+        vec /= act_num[act_idx]
+    return pretrained_avail, vec
 
 
 def merge_embeddings(embedding_names):

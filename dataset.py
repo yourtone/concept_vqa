@@ -24,12 +24,23 @@ class VQADataset(Dataset):
             if model_group_name == 'avg_label':
                 obj_fname = get_feature_path('train2014', 'class-fea')
                 self.obj_feas = np.load(obj_fname)
+            elif model_group_name == 'onehot_label':
+                obj_fname = get_feature_path('train2014', 'class')
+                self.obj_feas = np.load(obj_fname)
         else:
             fea_fname = get_feature_path('val2014', 'feature')
             self.img_feas = open_memmap(fea_fname, dtype='float32')
             if model_group_name == 'avg_label':
                 obj_fname = get_feature_path('val2014', 'class-fea')
                 self.obj_feas = np.load(obj_fname)
+            elif model_group_name == 'onehot_label':
+                obj_fname = get_feature_path('val2014', 'class')
+                self.obj_feas = np.load(obj_fname)
+
+        if model_group_name == 'onehot_label':
+            with open('data/objects_vocab.txt') as f:
+                self.objects_vocab = f.read().splitlines()
+            self.objects_vocab = ['__no_objects__'] + self.objects_vocab
 
     def __getitem__(self, idx):
         item = []
