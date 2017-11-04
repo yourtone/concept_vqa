@@ -166,26 +166,28 @@ def main():
 
     # train
     logger.debug('[Info] start training...')
+    is_best = False
     best_acc = 0
     best_epoch = -1
+    do_test = True if len(cfg.TEST_SPLITS) > 0 else False
     for epoch in range(args.start_epoch, args.epochs):
         lr = adjust_learning_rate(optimizer, epoch)
-
-        loss = train(train_loader, model, criterion, optimizer, epoch)
-        acc = validate(val_loader, model, criterion, epoch)
-
-        ploter.append(epoch, loss, 'train-loss')
-        ploter.append(epoch, acc, 'val-acc')
         ploter.append(epoch, lr, 'lr')
 
-        if acc > best_acc:
-            is_best = True
-            best_acc = acc
-            best_epoch = epoch
+        loss = train(train_loader, model, criterion, optimizer, epoch)
+        ploter.append(epoch, loss, 'train-loss')
 
-        logger.debug('Evaluate Result:\t'
-                     'Acc  {0}\t'
-                     'Best {1} ({2})'.format(acc, best_acc, best_epoch))
+        if do_test:
+            acc = validate(val_loader, model, criterion, epoch)
+            ploter.append(epoch, acc, 'val-acc')
+            if acc > best_acc:
+                is_best = True
+                best_acc = acc
+                best_epoch = epoch
+
+            logger.debug('Evaluate Result:\t'
+                         'Acc  {0}\t'
+                         'Best {1} ({2})'.format(acc, best_acc, best_epoch))
 
         # save checkpoint
         cp_fname = 'checkpoint-{:03}.pth.tar'.format(epoch)

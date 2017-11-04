@@ -18,39 +18,56 @@ class VQADataset(Dataset):
         if 'ans' in data:
             self.ans = data['ans'].value
 
-        if split == 'train':
-            fea_fname = get_feature_path('train2014', 'feature')
-            self.img_feas = open_memmap(fea_fname, dtype='float32')
-            if model_group_name == 'avg_label':
-                obj_fname = get_feature_path('train2014', 'class-fea')
-                self.obj_feas = np.load(obj_fname)
-            elif model_group_name == 'onehot_label':
-                obj_fname = get_feature_path('train2014', 'class')
-                self.obj_feas = np.load(obj_fname)
-        else:
-            fea_fname = get_feature_path('val2014', 'feature')
-            self.img_feas = open_memmap(fea_fname, dtype='float32')
-            if model_group_name == 'avg_label':
-                obj_fname = get_feature_path('val2014', 'class-fea')
-                self.obj_feas = np.load(obj_fname)
-            elif model_group_name == 'onehot_label':
-                obj_fname = get_feature_path('val2014', 'class')
-                self.obj_feas = np.load(obj_fname)
+        # load image features
+        data_splits = cfg.TRAIN_SPLITS if split == 'train' else cfg.TEST_SPLITS
+        self.img_feas = []
+        for data_split in data_splits:
+            fea_fname = get_feature_path(data_split, 'feature')
+            self.img_feas.append(open_memmap(fea_fname, dtype='float32'))
+        self.img_cnts = list(map(len, self.img_feas))
 
+        # load object features
+        obj_fea_name = None
+        if model_group_name == 'avg_label':
+            obj_fea_name = 'class-fea'
+        elif model_group_name == 'onehot_label':
+            obj_fea_name = 'class'
+
+        if obj_fea_name:
+            self.obj_feas = []
+            for data_split in data_splits:
+                obj_fname = get_feature_path(data_split, obj_fea_name)
+                self.obj_feas.append(np.load(obj_fname))
+            if len(self.obj_feas) > 0:
+                self.obj_feas = np.vstack(self.obj_feas)
+
+        # load object labels
         if model_group_name == 'onehot_label':
             with open('data/objects_vocab.txt') as f:
                 self.objects_vocab = f.read().splitlines()
             self.objects_vocab = ['__no_objects__'] + self.objects_vocab
 
+    def _split_pos(self, abs_ip):
+        ip = 0
+        sub_ip = abs_ip
+        for cnt in self.img_cnts:
+            if sub_ip >= cnt:
+                ip += 1
+                sub_ip -= cnt
+            else:
+                break
+        return ip, sub_ip
+
     def __getitem__(self, idx):
         item = []
-        ip = self.img_pos[idx]
+        abs_ip = self.img_pos[idx]
+        ip, sub_ip = self._split_pos(abs_ip)
         item.append(self.que_id[idx])
-        item.append(np.array(self.img_feas[ip]))
+        item.append(np.array(self.img_feas[ip][sub_ip]))
         item.append(self.que[idx])
 
         if hasattr(self, 'obj_feas'):
-            item.append(np.array(self.obj_feas[ip]))
+            item.append(np.array(self.obj_feas[abs_ip]))
 
         if hasattr(self, 'ans'):
             item.append(self.ans[idx])

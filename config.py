@@ -59,6 +59,8 @@ __C.WORD_EMBEDDINGS = 'glove.6B.300d.txt'
 
 
 def get_feature_path(split, fea_name):
+    if split == 'test-dev2015':
+        split = 'test2015'
     return '{}/image-feature/{}/{}_{}_{}.npy'.format(
             __C.DATA_DIR, __C.FEATURE_SOURCE, split, __C.NUM_BOXES, fea_name)
 
