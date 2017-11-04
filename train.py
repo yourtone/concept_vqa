@@ -6,6 +6,7 @@ import time
 import logging
 import datetime
 import json
+from importlib import import_module
 
 import torch
 import torch.nn as nn
@@ -17,7 +18,6 @@ import numpy as np
 from torch.autograd import Variable
 from visdom import Visdom
 
-import models
 from dataset import VQADataset
 from eval_tools import get_eval
 from config import cfg, cfg_from_file, cfg_from_list
@@ -34,7 +34,7 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--save-freq', default=1, type=int, metavar='N',
                     help='frequency of saving checkpoint')
-parser.add_argument('--model', '-m', default='Baseline',
+parser.add_argument('--model', '-m', default='normal/V2V',
                     help='name of the model')
 parser.add_argument('--gpu_id', default=0, type=int, metavar='N',
                     help='index of the gpu')
@@ -102,9 +102,9 @@ def main():
 
     # data
     logger.debug('[Info] init dataset')
-    needT = args.model not in ('V2V', 'MultiAttModel', 'GatedMultiAttModel')
-    trn_set = VQADataset('train', needT)
-    val_set = VQADataset('test', needT)
+    model_group_name, model_name = args.model.split('/')
+    trn_set = VQADataset('train', model_group_name)
+    val_set = VQADataset('test', model_group_name)
 
     train_loader = torch.utils.data.DataLoader(
             trn_set, batch_size=cfg.BATCH_SIZE, shuffle=True,
@@ -122,7 +122,8 @@ def main():
         logger.debug('[Info] embedding size: {}'.format(emb_size))
 
     logger.debug('[Info] construct model, criterion and optimizer')
-    model = getattr(models, args.model)(
+    model_group = import_module('models.' + model_group_name)
+    model = getattr(model_group, model_name)(
             num_words=trn_set.num_words,
             num_ans=trn_set.num_ans,
             emb_size=emb_size)
