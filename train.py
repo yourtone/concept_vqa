@@ -146,9 +146,13 @@ def main():
                 .format(fill_cnt, len(words)))
         model.we.weight = nn.Parameter(torch.from_numpy(emb))
 
-        if model_group_name == 'onehot_label':
+        if model_group_name in ('onehot_label', 'prob_label'):
             # initialize object embedding with pretrained
             obj_emb = model.obj_net[0].weight.data.numpy()
+
+            if model_group_name == 'prob_label':
+                obj_emb = obj_emb.T
+
             fill_cnt = 0
             for i, line in enumerate(trn_set.objects_vocab):
                 avail, vec = get_class_embedding(line, word_vec, emb_size)
@@ -157,6 +161,10 @@ def main():
                     fill_cnt += 1
             logger.debug('[debug] class embedding filling count: {}/{}'
                     .format(fill_cnt, len(trn_set.objects_vocab)))
+
+            if model_group_name == 'prob_label':
+                obj_emb = obj_emb.T
+
             model.obj_net[0].weight = nn.Parameter(torch.from_numpy(obj_emb))
 
     model.cuda()

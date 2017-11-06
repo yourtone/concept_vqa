@@ -1,0 +1,239 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class T2V(nn.Module):
+    def __init__(self, num_words, num_ans, emb_size):
+        super(T2V, self).__init__()
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
+        self.wedp = nn.Dropout(0.5)
+        self.gru = nn.GRU(input_size=emb_size,
+                          hidden_size=512,
+                          num_layers=1,
+                          batch_first=True,
+                          dropout=0.5)
+        self.obj_net = nn.Sequential(
+                nn.Linear(1601, emb_size, bias=False),
+                nn.Dropout(0.5),
+                nn.Linear(emb_size, 512),
+                nn.Tanh())
+        self.att_net = nn.Sequential(
+                nn.Conv1d(2*512, 512, kernel_size=1),
+                nn.Tanh(),
+                nn.Dropout(0.5),
+                nn.Conv1d(512, 1, kernel_size=1))
+
+        self.que_fc1 = nn.Linear(512, 512)
+        self.img_fc1 = nn.Linear(2048, 512)
+        self.pred_net = nn.Sequential(
+                nn.Linear(512, 512),
+                nn.Tanh(),
+                nn.Dropout(0.5),
+                nn.Linear(512, num_ans))
+
+    def forward(self, img, que, obj):
+        bs = img.size()[0]
+        emb = self.wedp(self.we(que))
+        _, hn = self.gru(emb)
+        hn = hn.squeeze(dim=0)
+
+        img = img.transpose(1, 2)
+        img_norm = F.normalize(img, p=2, dim=1)
+
+        obj_emb = self.obj_net(obj).transpose(1, 2)
+
+        merge_fea = torch.cat((hn.unsqueeze(dim=2).expand(bs, 512, 36),
+                               obj_emb),
+                              dim=1)
+        att_w = F.softmax(self.att_net(merge_fea).squeeze(dim=1))
+        att_w_exp = att_w.unsqueeze(dim=1).expand_as(img_norm)
+        att_img = torch.mul(img_norm, att_w_exp).sum(dim=2)
+
+        que_fea1 = F.tanh(self.que_fc1(hn))
+        img_fea1 = F.tanh(self.img_fc1(att_img))
+        mul_fea = torch.mul(que_fea1, img_fea1)
+        score = self.pred_net(mul_fea)
+
+        return score
+
+
+class TV2V(nn.Module):
+    def __init__(self, num_words, num_ans, emb_size):
+        super(TV2V, self).__init__()
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
+        self.wedp = nn.Dropout(0.5)
+        self.gru = nn.GRU(input_size=emb_size,
+                          hidden_size=512,
+                          num_layers=1,
+                          batch_first=True,
+                          dropout=0.5)
+        self.obj_net = nn.Sequential(
+                nn.Linear(1601, emb_size, bias=False),
+                nn.Dropout(0.5),
+                nn.Linear(emb_size, 512),
+                nn.Tanh())
+        self.att_net = nn.Sequential(
+                nn.Conv1d(2*512+2048, 512, kernel_size=1),
+                nn.Tanh(),
+                nn.Dropout(0.5),
+                nn.Conv1d(512, 1, kernel_size=1))
+
+        self.que_fc1 = nn.Linear(512, 512)
+        self.img_fc1 = nn.Linear(2048, 512)
+        self.pred_net = nn.Sequential(
+                nn.Linear(512, 512),
+                nn.Tanh(),
+                nn.Dropout(0.5),
+                nn.Linear(512, num_ans))
+
+    def forward(self, img, que, obj):
+        bs = img.size()[0]
+        emb = self.wedp(self.we(que))
+        _, hn = self.gru(emb)
+        hn = hn.squeeze(dim=0)
+
+        img = img.transpose(1, 2)
+        img_norm = F.normalize(img, p=2, dim=1)
+
+        obj_emb = self.obj_net(obj).transpose(1, 2)
+
+        merge_fea = torch.cat((hn.unsqueeze(dim=2).expand(bs, 512, 36),
+                               obj_emb,
+                               img_norm),
+                              dim=1)
+        att_w = F.softmax(self.att_net(merge_fea).squeeze(dim=1))
+        att_w_exp = att_w.unsqueeze(dim=1).expand_as(img_norm)
+        att_img = torch.mul(img_norm, att_w_exp).sum(dim=2)
+
+        que_fea1 = F.tanh(self.que_fc1(hn))
+        img_fea1 = F.tanh(self.img_fc1(att_img))
+        mul_fea = torch.mul(que_fea1, img_fea1)
+        score = self.pred_net(mul_fea)
+
+        return score
+
+
+class TV2TV(nn.Module):
+    def __init__(self, num_words, num_ans, emb_size):
+        super(TV2TV, self).__init__()
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
+        self.wedp = nn.Dropout(0.5)
+        self.gru = nn.GRU(input_size=emb_size,
+                          hidden_size=512,
+                          num_layers=1,
+                          batch_first=True,
+                          dropout=0.5)
+        self.obj_net = nn.Sequential(
+                nn.Linear(1601, emb_size, bias=False),
+                nn.Dropout(0.5),
+                nn.Linear(emb_size, 512),
+                nn.Tanh())
+        self.att_net = nn.Sequential(
+                nn.Conv1d(2*512+2048, 512, kernel_size=1),
+                nn.Tanh(),
+                nn.Dropout(0.5),
+                nn.Conv1d(512, 1, kernel_size=1))
+
+        self.que_fc1 = nn.Linear(512, 512)
+        self.img_fc1 = nn.Linear(2048+512, 512)
+        self.pred_net = nn.Sequential(
+                nn.Linear(512, 512),
+                nn.Tanh(),
+                nn.Dropout(0.5),
+                nn.Linear(512, num_ans))
+
+    def forward(self, img, que, obj):
+        bs = img.size()[0]
+        emb = self.wedp(self.we(que))
+        _, hn = self.gru(emb)
+        hn = hn.squeeze(dim=0)
+
+        img = img.transpose(1, 2)
+        img_norm = F.normalize(img, p=2, dim=1)
+
+        obj_emb = self.obj_net(obj).transpose(1, 2)
+
+        merge_fea = torch.cat((hn.unsqueeze(dim=2).expand(bs, 512, 36),
+                               obj_emb,
+                               img_norm),
+                              dim=1)
+        att_fea = torch.cat((obj_emb, img_norm), dim=1)
+        att_w = F.softmax(self.att_net(merge_fea).squeeze(dim=1))
+        att_w_exp = att_w.unsqueeze(dim=1).expand_as(att_fea)
+        att_img = torch.mul(att_fea, att_w_exp).sum(dim=2)
+
+        que_fea1 = F.tanh(self.que_fc1(hn))
+        img_fea1 = F.tanh(self.img_fc1(att_img))
+        mul_fea = torch.mul(que_fea1, img_fea1)
+        score = self.pred_net(mul_fea)
+
+        return score
+
+
+class T2TV2V(nn.Module):
+    def __init__(self, num_words, num_ans, emb_size):
+        super(T2TV2V, self).__init__()
+        self.we = nn.Embedding(num_words, emb_dize, padding_idx=0)
+        self.wedp = nn.Dropout(0.5)
+        self.gru = nn.GRU(input_size=emb_dize,
+                          hidden_size=512,
+                          num_layers=1,
+                          batch_first=True,
+                          dropout=0.5)
+        self.obj_net = nn.Sequential(
+                nn.Linear(1601, emb_size, bias=False),
+                nn.Dropout(0.5),
+                nn.Linear(emb_dize, 512),
+                nn.Tanh())
+        self.att_net1 = nn.Sequential(
+                nn.Conv1d(512 + 2048, 512, kernel_size=1),
+                nn.Tanh(),
+                nn.Dropout(0.5),
+                nn.Conv1d(512, 1, kernel_size=1))
+        self.att_net2 = nn.Sequential(
+                nn.Conv1d(2 * 512, 512, kernel_size=1),
+                nn.Tanh(),
+                nn.Dropout(0.5),
+                nn.Conv1d(512, 1, kernel_size=1))
+
+        self.que_fc1 = nn.Linear(512, 512)
+        self.img_fc1 = nn.Linear(2048+512, 512)
+        self.pred_net = nn.Sequential(
+                nn.Linear(512, 512),
+                nn.Tanh(),
+                nn.Dropout(0.5),
+                nn.Linear(512, num_ans))
+
+    def forward(self, img, que, obj):
+        bs = img.size()[0]
+        emb = self.wedp(self.we(que))
+        _, hn = self.gru(emb)
+        hn = hn.squeeze(dim=0)
+
+        img = img.transpose(1, 2)
+        img_norm = F.normalize(img, p=2, dim=1)
+
+        obj_emb = self.obj_net(obj).transpose(1, 2)
+
+        exp_que = hn.unsqueeze(dim=2).expand(bs, 512, 36)
+        img_w_fea = torch.cat((exp_que, img_norm), dim=1)
+        obj_w_fea = torch.cat((exp_que, obj_emb), dim=1)
+
+        img_att_w = F.softmax(self.att_net1(img_w_fea).squeeze(dim=1))
+        img_att_w_exp = img_att_w.unsqueeze(dim=1).expand_as(img_norm)
+        att_img = torch.mul(img_norm, img_att_w_exp).sum(dim=2)
+
+        obj_att_w = F.softmax(self.att_net2(obj_w_fea).squeeze(dim=1))
+        obj_att_w_exp = obj_att_w.unsqueeze(dim=1).expand_as(obj_emb)
+        att_obj = torch.mul(obj_emb, obj_att_w_exp).sum(dim=2)
+
+        merge_att = torch.cat((att_img, att_obj), dim=1)
+
+        que_fea1 = F.tanh(self.que_fc1(hn))
+        img_fea1 = F.tanh(self.img_fc1(merge_att))
+        mul_fea = torch.mul(que_fea1, img_fea1)
+        score = self.pred_net(mul_fea)
+
+        return score
+

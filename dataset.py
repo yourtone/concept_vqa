@@ -32,6 +32,8 @@ class VQADataset(Dataset):
             obj_fea_name = 'class-fea'
         elif model_group_name == 'onehot_label':
             obj_fea_name = 'class'
+        elif model_group_name == 'prob_label':
+            obj_fea_name = 'class-prob'
 
         if obj_fea_name:
             self.obj_feas = []
@@ -42,7 +44,7 @@ class VQADataset(Dataset):
                 self.obj_feas = np.vstack(self.obj_feas)
 
         # load object labels
-        if model_group_name == 'onehot_label':
+        if model_group_name in ('onehot_label', 'prob_label'):
             with open('data/objects_vocab.txt') as f:
                 self.objects_vocab = f.read().splitlines()
             self.objects_vocab = ['__no_objects__'] + self.objects_vocab
