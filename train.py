@@ -21,6 +21,7 @@ from visdom import Visdom
 from dataset import VQADataset
 from eval_tools import get_eval
 from config import cfg, cfg_from_file, cfg_from_list
+from predict import predict
 
 
 parser = argparse.ArgumentParser(description='Train VQA model')
@@ -103,15 +104,17 @@ def main():
 
     # data
     logger.debug('[Info] init dataset')
+    do_test = (len(cfg.TEST_SPLITS) == 1
+            and cfg.TEST_SPLITS[0] in ('train2014', 'val2014'))
     trn_set = VQADataset('train', model_group_name)
-    val_set = VQADataset('test', model_group_name)
-
     train_loader = torch.utils.data.DataLoader(
             trn_set, batch_size=cfg.BATCH_SIZE, shuffle=True,
             num_workers=args.workers, pin_memory=True)
-    val_loader = torch.utils.data.DataLoader(
-            val_set, batch_size=cfg.BATCH_SIZE, shuffle=False,
-            num_workers=args.workers, pin_memory=True)
+    if do_test:
+        val_set = VQADataset('test', model_group_name)
+        val_loader = torch.utils.data.DataLoader(
+                val_set, batch_size=cfg.BATCH_SIZE, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
 
     # model
     emb_size = 300
@@ -169,7 +172,6 @@ def main():
     is_best = False
     best_acc = 0
     best_epoch = -1
-    do_test = True if len(cfg.TEST_SPLITS) > 0 else False
     for epoch in range(args.start_epoch, args.epochs):
         lr = adjust_learning_rate(optimizer, epoch)
         ploter.append(epoch, lr, 'lr')
@@ -291,21 +293,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
 
 def validate(val_loader, model, criterion, epoch):
-    model.eval()
-    itoa = val_loader.dataset.codebook['itoa']
-
-    results = []
-    end = time.time()
-    bar = progressbar.ProgressBar()
-    # sample: (que_id, img, que, [obj])
-    for sample in bar(val_loader):
-        sample_var = [Variable(d).cuda() for d in list(sample)[1:]]
-
-        score = model(*sample_var)
-
-        results.extend(format_result(sample[0], score, itoa))
-
-    vqa_eval = get_eval(results, 'val2014')
+    results = predict(val_loader, model)
+    vqa_eval = get_eval(results, cfg.TEST_SPLITS[0])
 
     # save result and accuracy
     result_file = os.path.join(cfg.LOG_DIR,
@@ -316,16 +305,6 @@ def validate(val_loader, model, criterion, epoch):
     json.dump(vqa_eval.accuracy, open(acc_file, 'w'))
 
     return vqa_eval.accuracy['overall']
-
-
-def format_result(que_ids, scores, itoa):
-    _, ans_ids = torch.max(scores.data, dim=1)
-
-    result = []
-    for que_id, ans_id in zip(que_ids, ans_ids):
-        result.append({'question_id': que_id,
-                       'answer': itoa[ans_id]})
-    return result
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
