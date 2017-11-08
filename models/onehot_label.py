@@ -174,17 +174,17 @@ class TV2TV(nn.Module):
 class T2TV2V(nn.Module):
     def __init__(self, num_words, num_ans, emb_size):
         super(T2TV2V, self).__init__()
-        self.we = nn.Embedding(num_words, emb_dize, padding_idx=0)
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
         self.wedp = nn.Dropout(0.5)
-        self.gru = nn.GRU(input_size=emb_dize,
+        self.gru = nn.GRU(input_size=emb_size,
                           hidden_size=512,
                           num_layers=1,
                           batch_first=True,
                           dropout=0.5)
         self.obj_net = nn.Sequential(
-                nn.Embedding(1601, emb_dize, padding_idx=0),
+                nn.Embedding(1601, emb_size, padding_idx=0),
                 nn.Dropout(0.5),
-                nn.Linear(emb_dize, 512),
+                nn.Linear(emb_size, 512),
                 nn.Tanh())
         self.att_net1 = nn.Sequential(
                 nn.Conv1d(512 + 2048, 512, kernel_size=1),
@@ -249,9 +249,9 @@ class MultiAttModel(nn.Module):
                           batch_first=True,
                           dropout=0.5)
         self.obj_net = nn.Sequential(
-                nn.Embedding(1601, emb_dize, padding_idx=0),
+                nn.Embedding(1601, emb_size, padding_idx=0),
                 nn.Dropout(0.5),
-                nn.Linear(emb_dize, 512),
+                nn.Linear(emb_size, 512),
                 nn.Tanh())
         self.que_fc = nn.Sequential(
                 nn.Dropout(0.5),
@@ -260,7 +260,7 @@ class MultiAttModel(nn.Module):
 
         self.img_same_net = nn.Sequential(
                 nn.Dropout(0.5),
-                nn.Conv1d(2048 + 300, 512, kernel_size=1),
+                nn.Conv1d(2048 + 512, 512, kernel_size=1),
                 nn.Tanh())
         self.que_same_net = nn.Sequential(
                 nn.Dropout(0.5),
@@ -271,11 +271,11 @@ class MultiAttModel(nn.Module):
 
         self.att_img1_fc = nn.Sequential(
                 nn.Dropout(0.5),
-                nn.Linear(2048 + 300, 512),
+                nn.Linear(2048 + 512, 512),
                 nn.Tanh())
         self.att_img2_fc = nn.Sequential(
                 nn.Dropout(0.5),
-                nn.Linear(2048 + 300, 512),
+                nn.Linear(2048 + 512, 512),
                 nn.Tanh())
 
         self.pred_net = nn.Sequential(
