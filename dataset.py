@@ -19,10 +19,7 @@ class VQADataset(Dataset):
             self.ans = data['ans'].value
 
         # load image features
-        if split == 'train':
-            self.splits = cfg.TRAIN_SPLITS
-        else:
-            self.splits = cfg.TEST_SPLITS
+        self.splits = cfg[split.upper()].SPLITS
         self.img_feas = []
         for data_split in self.splits:
             fea_fname = get_feature_path(data_split, 'feature')

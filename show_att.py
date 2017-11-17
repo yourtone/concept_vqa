@@ -87,7 +87,7 @@ def main():
 class AttQuery(object):
     def __init__(self, model_info, split, save_dir):
         assert len(model_info) > 0
-        assert len(cfg.TEST_SPLITS) == 1 and cfg.TEST_SPLITS[0] == split
+        assert len(cfg.TEST.SPLITS) == 1 and cfg.TEST.SPLITS[0] == split
 
         model_info = sorted(model_info, key=itemgetter(0))
 

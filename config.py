@@ -20,10 +20,12 @@ __C.VQA_DIR = 'vqa-tools'
 __C.LOG_DIR = 'log'
 
 # Splits of VQA to use during training
-__C.TRAIN_SPLITS = ('train2014',)
+__C.TRAIN = edict()
+__C.TRAIN.SPLITS = ('train2014',)
 
 # Splits of VQA to use during testing
-__C.TEST_SPLITS = ('val2014',)
+__C.TEST = edict()
+__C.TEST.SPLITS = ('val2014',)
 
 # Minimun frequency of the answer which can be choosed as a candidate
 __C.MIN_ANS_FREQ = 16
@@ -38,15 +40,6 @@ __C.MAX_QUESTION_LEN = 14
 # Random seed
 __C.USE_RANDOM_SEED = True
 __C.SEED = 42
-
-# minibatch size (number of question)
-__C.BATCH_SIZE = 512
-
-# learning rate
-__C.LEARNING_RATE = 3e-4
-
-# weight decay
-__C.WEIGHT_DECAY = 0
 
 # source name of feature ('bottomup' or 'densecap')
 __C.FEATURE_SOURCE = 'bottomup'

@@ -12,12 +12,12 @@ from config import cfg, get_feature_path
 def main():
     # load data
     trn_data = []
-    for split_name in cfg.TRAIN_SPLITS:
+    for split_name in cfg.TRAIN.SPLITS:
         fname = '{}/raw-{}.json'.format(cfg.DATA_DIR, split_name)
         print('[Load] {}'.format(fname))
         trn_data.extend(json.load(open(fname)))
     tst_data = []
-    for split_name in cfg.TEST_SPLITS:
+    for split_name in cfg.TEST.SPLITS:
         fname = '{}/raw-{}.json'.format(cfg.DATA_DIR, split_name)
         print('[Load] {}'.format(fname))
         tst_data.extend(json.load(open(fname)))
@@ -58,10 +58,10 @@ def main():
 
     # index image feature
     trn_img_ids = map(itemgetter('image_id'), trn_data)
-    trn_img_pos = get_img_pos(cfg.TRAIN_SPLITS, trn_img_ids)
+    trn_img_pos = get_img_pos(cfg.TRAIN.SPLITS, trn_img_ids)
 
     tst_img_ids = map(itemgetter('image_id'), tst_data)
-    tst_img_pos = get_img_pos(cfg.TEST_SPLITS, tst_img_ids)
+    tst_img_pos = get_img_pos(cfg.TEST.SPLITS, tst_img_ids)
 
     # encode question
     trn_que, trn_que_id = encode_que(trn_data, wtoi)
