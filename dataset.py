@@ -19,35 +19,20 @@ class VQADataset(Dataset):
             self.ans = data['ans'].value
 
         # load image features
-        data_splits = cfg.TRAIN_SPLITS if split == 'train' else cfg.TEST_SPLITS
+        if split == 'train':
+            self.splits = cfg.TRAIN_SPLITS
+        else:
+            self.splits = cfg.TEST_SPLITS
         self.img_feas = []
-        for data_split in data_splits:
+        for data_split in self.splits:
             fea_fname = get_feature_path(data_split, 'feature')
             self.img_feas.append(open_memmap(fea_fname, dtype='float32'))
         self.img_cnts = list(map(len, self.img_feas))
 
-        # load object features
-        obj_fea_name = None
-        if model_group_name == 'avg_label':
-            obj_fea_name = 'class-fea'
-        elif model_group_name == 'onehot_label':
-            obj_fea_name = 'class'
-        elif model_group_name == 'prob_label':
-            obj_fea_name = 'class-prob'
+        self.reload_obj(model_group_name)
 
-        if obj_fea_name:
-            self.obj_feas = []
-            for data_split in data_splits:
-                obj_fname = get_feature_path(data_split, obj_fea_name)
-                self.obj_feas.append(np.load(obj_fname))
-            if len(self.obj_feas) > 0:
-                self.obj_feas = np.vstack(self.obj_feas)
+        self.model_group_name = model_group_name
 
-        # load object labels
-        if model_group_name in ('onehot_label', 'prob_label'):
-            with open('data/objects_vocab.txt') as f:
-                self.objects_vocab = f.read().splitlines()
-            self.objects_vocab = ['__no_objects__'] + self.objects_vocab
 
     def _split_pos(self, abs_ip):
         ip = 0
@@ -59,6 +44,7 @@ class VQADataset(Dataset):
             else:
                 break
         return ip, sub_ip
+
 
     def __getitem__(self, idx):
         item = []
@@ -76,12 +62,45 @@ class VQADataset(Dataset):
 
         return item
 
+
     def __len__(self):
         return self.que.shape[0]
+
+
+    def reload_obj(self, model_group_name):
+        if hasattr(self, 'obj_feas'):
+            del self.obj_feas
+        if hasattr(self, 'objects_vocab'):
+            del self.objects_vocab
+
+        # load object features
+        obj_fea_name = None
+        if model_group_name == 'avg_label':
+            obj_fea_name = 'class-fea'
+        elif model_group_name == 'onehot_label':
+            obj_fea_name = 'class'
+        elif model_group_name == 'prob_label':
+            obj_fea_name = 'class-prob'
+
+        if obj_fea_name:
+            self.obj_feas = []
+            for data_split in self.splits:
+                obj_fname = get_feature_path(data_split, obj_fea_name)
+                self.obj_feas.append(np.load(obj_fname))
+            if len(self.obj_feas) > 0:
+                self.obj_feas = np.vstack(self.obj_feas)
+
+        # load object labels
+        if model_group_name in ('onehot_label', 'prob_label'):
+            with open('data/objects_vocab.txt') as f:
+                self.objects_vocab = f.read().splitlines()
+            self.objects_vocab = ['__no_objects__'] + self.objects_vocab
+
 
     @property
     def num_words(self):
         return len(self.codebook['itow'])
+
 
     @property
     def num_ans(self):
