@@ -50,8 +50,7 @@ def main():
     que_ids = dataset.que_id
     for model_group_name, model_name, model_acc, cp_file in model_info:
         # data
-        if dataset.model_group_name != model_group_name:
-            dataset.reload_obj(model_group_name)
+        dataset.reload_obj(model_group_name)
         dataloader = torch.utils.data.DataLoader(
                 dataset, batch_size=cfg.BATCH_SIZE, shuffle=False,
                 num_workers=2, pin_memory=True)

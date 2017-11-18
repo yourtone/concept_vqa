@@ -26,9 +26,8 @@ class VQADataset(Dataset):
             self.img_feas.append(open_memmap(fea_fname, dtype='float32'))
         self.img_cnts = list(map(len, self.img_feas))
 
+        self.model_group_name = None
         self.reload_obj(model_group_name)
-
-        self.model_group_name = model_group_name
 
 
     def _split_pos(self, abs_ip):
@@ -65,6 +64,9 @@ class VQADataset(Dataset):
 
 
     def reload_obj(self, model_group_name):
+        if model_group_name == self.model_group_name:
+            return
+
         if hasattr(self, 'obj_feas'):
             del self.obj_feas
         if hasattr(self, 'objects_vocab'):
@@ -92,6 +94,8 @@ class VQADataset(Dataset):
             with open('data/objects_vocab.txt') as f:
                 self.objects_vocab = f.read().splitlines()
             self.objects_vocab = ['__no_objects__'] + self.objects_vocab
+
+        self.model_group_name = model_group_name
 
 
     @property

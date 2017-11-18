@@ -123,8 +123,7 @@ class AttQuery(object):
                 continue
 
             # dataset
-            if dataset.model_group_name != model_group_name:
-                dataset.reload_obj(model_group_name)
+            dataset.reload_obj(model_group_name)
             dataloader = torch.utils.data.DataLoader(
                     dataset, batch_size=cfg.BATCH_SIZE,
                     shuffle=False, num_workers=2, pin_memory=True)
