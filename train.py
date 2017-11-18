@@ -312,7 +312,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
 def validate(val_loader, model, criterion, epoch):
     results = predict(val_loader, model)
-    vqa_eval = get_eval(results, cfg.TEST_SPLITS[0])
+    vqa_eval = get_eval(results, cfg.TEST.SPLITS[0])
 
     # save result and accuracy
     result_file = os.path.join(cfg.LOG_DIR,
