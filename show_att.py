@@ -21,17 +21,28 @@ from predict import format_result
 from eval_tools import get_eval
 from dataset import VQADataset
 from config import cfg, get_feature_path, get_emb_size
+from config import cfg_from_file, cfg_from_list
+
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('model_dir')
 parser.add_argument('--split', default='val2014')
 parser.add_argument('--file-ptn', default=None)
+parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
+                    help='optional config file')
+parser.add_argument('--set', dest='set_cfgs', default=None,
+                    nargs=argparse.REMAINDER, help='set config keys')
 
 
 def main():
     global args
     args = parser.parse_args()
+
+    if args.cfg_file is not None:
+        cfg_from_file(args.cfg_file)
+    if args.set_cfgs is not None:
+        cfg_from_list(args.set_cfgs)
 
     files = os.listdir(args.model_dir)
     cp_files = [f for f in files if f.endswith('.pth.tar')]
