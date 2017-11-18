@@ -12,12 +12,12 @@ from config import cfg, get_feature_path
 def main():
     # load data
     trn_data = []
-    for split_name in cfg.TRAIN_SPLITS:
+    for split_name in cfg.TRAIN.SPLITS:
         fname = '{}/raw-{}.json'.format(cfg.DATA_DIR, split_name)
         print('[Load] {}'.format(fname))
         trn_data.extend(json.load(open(fname)))
     tst_data = []
-    for split_name in cfg.TEST_SPLITS:
+    for split_name in cfg.TEST.SPLITS:
         fname = '{}/raw-{}.json'.format(cfg.DATA_DIR, split_name)
         print('[Load] {}'.format(fname))
         tst_data.extend(json.load(open(fname)))
@@ -59,17 +59,11 @@ def main():
         print(' '.join(itow[-10:]))
 
     # index image feature
-    img_ids = np.load(get_feature_path('train2014', 'id'))
-    id_to_pos = {img_id: i for i, img_id in enumerate(img_ids)}
-    trn_img_pos = [id_to_pos[img_id] for img_id in
-                    map(itemgetter('image_id'), trn_data)]
-    trn_img_pos = np.array(trn_img_pos, dtype='int64')
+    trn_img_ids = map(itemgetter('image_id'), trn_data)
+    trn_img_pos = get_img_pos(cfg.TRAIN.SPLITS, trn_img_ids)
 
-    img_ids = np.load(get_feature_path('val2014', 'id'))
-    id_to_pos = {img_id: i for i, img_id in enumerate(img_ids)}
-    tst_img_pos = [id_to_pos[img_id] for img_id in
-                    map(itemgetter('image_id'), tst_data)]
-    tst_img_pos = np.array(tst_img_pos, dtype='int64')
+    tst_img_ids = map(itemgetter('image_id'), tst_data)
+    tst_img_pos = get_img_pos(cfg.TEST.SPLITS, tst_img_ids)
 
     # encode question
     trn_que, trn_que_id = encode_que(trn_data, wtoi)
@@ -99,6 +93,17 @@ def main():
         group.create_dataset('que_id', dtype='int64', data=tst_que_id)
         group.create_dataset('img_pos', dtype='int64', data=tst_img_pos)
         group.create_dataset('que', dtype='int64', data=tst_que)
+
+
+def get_img_pos(splits, data_ids):
+    fea_ids = []
+    for split in splits:
+        fea_ids.append(np.load(get_feature_path(split, 'id')))
+    if len(fea_ids) > 0:
+        fea_ids = np.hstack(fea_ids)
+    id_to_pos = {img_id: i for i, img_id in enumerate(fea_ids)}
+    data_poses = [id_to_pos[img_id] for img_id in data_ids]
+    return np.array(data_poses, dtype='int64')
 
 
 def encode_que(data, wtoi):

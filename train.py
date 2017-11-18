@@ -6,6 +6,7 @@ import time
 import logging
 import datetime
 import json
+from importlib import import_module
 
 import torch
 import torch.nn as nn
@@ -17,10 +18,10 @@ import numpy as np
 from torch.autograd import Variable
 from visdom import Visdom
 
-import models
 from dataset import VQADataset
 from eval_tools import get_eval
 from config import cfg, cfg_from_file, cfg_from_list
+from predict import predict
 
 
 parser = argparse.ArgumentParser(description='Train VQA model')
@@ -34,14 +35,20 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--save-freq', default=1, type=int, metavar='N',
                     help='frequency of saving checkpoint')
-parser.add_argument('--model', '-m', default='Baseline',
+parser.add_argument('--model', '-m', default='normal/V2V',
                     help='name of the model')
 parser.add_argument('--gpu_id', default=0, type=int, metavar='N',
                     help='index of the gpu')
+parser.add_argument('--bs', '--batch-size', default=512, type=int, metavar='N',
+                    help='batch size')
+parser.add_argument('--lr', default=3e-4, type=float, metavar='FLOAT',
+                    help='initial learning rate')
 parser.add_argument('--lr-decay-start', default=40, type=int, metavar='N',
                     help='epoch number starting decay learning rate')
 parser.add_argument('--lr-decay-factor', default=0.8, type=float, metavar='FLOAT',
                     help='learning rate decay factor for every 10 epochs')
+parser.add_argument('--wd', '--weight-decay', default=0, type=float,
+                    metavar='FLOAT', help='weight decay')
 parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
                     help='optional config file')
 parser.add_argument('--set', dest='set_cfgs', default=None,
@@ -70,7 +77,8 @@ def main():
     cfg.LOG_DIR= os.path.join(cfg.LOG_DIR, timestamp)
     os.mkdir(cfg.LOG_DIR)
     json.dump(cfg, open(cfg.LOG_DIR + '/config.json', 'w'), indent=2)
-    shutil.copy('models.py', cfg.LOG_DIR)
+    model_group_name, model_name = args.model.split('/')
+    shutil.copy('models/' + model_group_name + '.py', cfg.LOG_DIR)
 
     # init ploter
     ploter = Ploter(timestamp)
@@ -102,16 +110,17 @@ def main():
 
     # data
     logger.debug('[Info] init dataset')
-    needT = args.model not in ('V2V', 'MultiAttModel', 'GatedMultiAttModel')
-    trn_set = VQADataset('train', needT)
-    val_set = VQADataset('test', needT)
-
+    do_test = (len(cfg.TEST.SPLITS) == 1
+            and cfg.TEST.SPLITS[0] in ('train2014', 'val2014'))
+    trn_set = VQADataset('train', model_group_name)
     train_loader = torch.utils.data.DataLoader(
             trn_set, batch_size=cfg.BATCH_SIZE, shuffle=True,
             num_workers=args.workers, pin_memory=True)
-    val_loader = torch.utils.data.DataLoader(
-            val_set, batch_size=cfg.BATCH_SIZE, shuffle=False,
-            num_workers=args.workers, pin_memory=True)
+    if do_test:
+        val_set = VQADataset('test', model_group_name)
+        val_loader = torch.utils.data.DataLoader(
+                val_set, batch_size=cfg.BATCH_SIZE, shuffle=False,
+                num_workers=args.workers, pin_memory=True)
 
     # model
     emb_size = 300
@@ -122,7 +131,8 @@ def main():
         logger.debug('[Info] embedding size: {}'.format(emb_size))
 
     logger.debug('[Info] construct model, criterion and optimizer')
-    model = getattr(models, args.model)(
+    model_group = import_module('models.' + model_group_name)
+    model = getattr(model_group, model_name)(
             num_words=trn_set.num_words,
             num_ans=trn_set.num_ans,
             emb_size=emb_size)
@@ -133,10 +143,35 @@ def main():
         emb = model.we.weight.data.numpy()
         words = trn_set.codebook['itow']
         assert '<PAD>' not in word_vec
+        fill_cnt = 0
         for i, w in enumerate(words):
             if w in word_vec:
                 emb[i] = word_vec[w]
+                fill_cnt += 1
+        logger.debug('[debug] word embedding filling count: {}/{}'
+                .format(fill_cnt, len(words)))
         model.we.weight = nn.Parameter(torch.from_numpy(emb))
+
+        if model_group_name in ('onehot_label', 'prob_label'):
+            # initialize object embedding with pretrained
+            obj_emb = model.obj_net[0].weight.data.numpy()
+
+            if model_group_name == 'prob_label':
+                obj_emb = obj_emb.T
+
+            fill_cnt = 0
+            for i, line in enumerate(trn_set.objects_vocab):
+                avail, vec = get_class_embedding(line, word_vec, emb_size)
+                if avail:
+                    obj_emb[i] = vec
+                    fill_cnt += 1
+            logger.debug('[debug] class embedding filling count: {}/{}'
+                    .format(fill_cnt, len(trn_set.objects_vocab)))
+
+            if model_group_name == 'prob_label':
+                obj_emb = obj_emb.T
+
+            model.obj_net[0].weight = nn.Parameter(torch.from_numpy(obj_emb))
 
     model.cuda()
 
@@ -152,26 +187,27 @@ def main():
 
     # train
     logger.debug('[Info] start training...')
+    is_best = False
     best_acc = 0
     best_epoch = -1
     for epoch in range(args.start_epoch, args.epochs):
         lr = adjust_learning_rate(optimizer, epoch)
-
-        loss = train(train_loader, model, criterion, optimizer, epoch)
-        acc = validate(val_loader, model, criterion, epoch)
-
-        ploter.append(epoch, loss, 'train-loss')
-        ploter.append(epoch, acc, 'val-acc')
         ploter.append(epoch, lr, 'lr')
 
-        if acc > best_acc:
-            is_best = True
-            best_acc = acc
-            best_epoch = epoch
+        loss = train(train_loader, model, criterion, optimizer, epoch)
+        ploter.append(epoch, loss, 'train-loss')
 
-        logger.debug('Evaluate Result:\t'
-                     'Acc  {0}\t'
-                     'Best {1} ({2})'.format(acc, best_acc, best_epoch))
+        if do_test:
+            acc = validate(val_loader, model, criterion, epoch)
+            ploter.append(epoch, acc, 'val-acc')
+            if acc > best_acc:
+                is_best = True
+                best_acc = acc
+                best_epoch = epoch
+
+            logger.debug('Evaluate Result:\t'
+                         'Acc  {0}\t'
+                         'Best {1} ({2})'.format(acc, best_acc, best_epoch))
 
         # save checkpoint
         cp_fname = 'checkpoint-{:03}.pth.tar'.format(epoch)
@@ -187,6 +223,26 @@ def main():
         if is_best:
             best_path = os.path.join(cfg.LOG_DIR, 'model-best.pth.tar')
             torch.save(state, best_path)
+
+
+def get_class_embedding(class_name, word_vec, emb_size):
+    synonyms = class_name.split(',')
+    act_num = []
+    act_ratio = []
+    for label in synonyms:
+        words = label.split()
+        act = sum([1 for word in words if word in word_vec])
+        act_num.append(act)
+        act_ratio.append(act / len(words))
+    act_idx = max(range(len(act_num)), key=lambda x: act_ratio[x])
+    vec = np.zeros((emb_size,), dtype='float32')
+    pretrained_avail = act_num[act_idx] > 0
+    if pretrained_avail:
+        for word in synonyms[act_idx].split():
+            if word in word_vec:
+                vec += word_vec[word]
+        vec /= act_num[act_idx]
+    return pretrained_avail, vec
 
 
 def merge_embeddings(embedding_names):
@@ -255,21 +311,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
 
 def validate(val_loader, model, criterion, epoch):
-    model.eval()
-    itoa = val_loader.dataset.codebook['itoa']
-
-    results = []
-    end = time.time()
-    bar = progressbar.ProgressBar()
-    # sample: (que_id, img, que, [obj])
-    for sample in bar(val_loader):
-        sample_var = [Variable(d).cuda() for d in list(sample)[1:]]
-
-        score = model(*sample_var)
-
-        results.extend(format_result(sample[0], score, itoa))
-
-    vqa_eval = get_eval(results, 'val2014')
+    results = predict(val_loader, model)
+    vqa_eval = get_eval(results, cfg.TEST_SPLITS[0])
 
     # save result and accuracy
     result_file = os.path.join(cfg.LOG_DIR,
@@ -280,16 +323,6 @@ def validate(val_loader, model, criterion, epoch):
     json.dump(vqa_eval.accuracy, open(acc_file, 'w'))
 
     return vqa_eval.accuracy['overall']
-
-
-def format_result(que_ids, scores, itoa):
-    _, ans_ids = torch.max(scores.data, dim=1)
-
-    result = []
-    for que_id, ans_id in zip(que_ids, ans_ids):
-        result.append({'question_id': que_id,
-                       'answer': itoa[ans_id]})
-    return result
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):

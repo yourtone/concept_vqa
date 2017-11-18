@@ -20,10 +20,12 @@ __C.VQA_DIR = 'vqa-tools'
 __C.LOG_DIR = 'log'
 
 # Splits of VQA to use during training
-__C.TRAIN_SPLITS = ('train2014',)
+__C.TRAIN = edict()
+__C.TRAIN.SPLITS = ('train2014',)
 
 # Splits of VQA to use during testing
-__C.TEST_SPLITS = ('val2014',)
+__C.TEST = edict()
+__C.TEST.SPLITS = ('val2014',)
 
 # Minimun frequency of the answer which can be choosed as a candidate
 __C.MIN_ANS_FREQ = 16
@@ -39,15 +41,6 @@ __C.MAX_QUESTION_LEN = 14
 __C.USE_RANDOM_SEED = True
 __C.SEED = 42
 
-# minibatch size (number of question)
-__C.BATCH_SIZE = 512
-
-# learning rate
-__C.LEARNING_RATE = 3e-4
-
-# weight decay
-__C.WEIGHT_DECAY = 0
-
 # source name of feature ('bottomup' or 'densecap')
 __C.FEATURE_SOURCE = 'bottomup'
 
@@ -60,11 +53,29 @@ __C.WORD_EMBEDDINGS = 'glove.6B.300d.txt'
 # Use soft sigmoid loss
 __C.SOFT_LOSS = True
 
+# load all data into memory, which will be faster when
+# iterating dataset many times
+__C.LOAD_ALL_DATA = True
+
 
 def get_feature_path(split, fea_name):
+    if split == 'test-dev2015':
+        split = 'test2015'
     return '{}/image-feature/{}/{}_{}_{}.npy'.format(
             __C.DATA_DIR, __C.FEATURE_SOURCE, split, __C.NUM_BOXES, fea_name)
 
+
+def get_emb_size():
+    emb_size = 300
+    if __C.WORD_EMBEDDINGS:
+        emb_names = __C.WORD_EMBEDDINGS.split('+')
+        emb_size = 0
+        for emb_name in emb_names:
+            emb_path = '{}/word-embedding/{}'.format(__C.DATA_DIR, emb_name)
+            with open(emb_path) as f:
+                line = f.readline()
+            emb_size += len(line.split()) - 1
+    return emb_size
 
 ##############################################################################
 # Copy from RCNN
