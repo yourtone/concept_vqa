@@ -10,7 +10,7 @@ import progressbar
 from torch.autograd import Variable
 
 from dataset import VQADataset
-from config import cfg, cfg_from_file, cfg_from_list
+from config import cfg, cfg_from_file, cfg_from_list, get_emb_size
 
 
 parser = argparse.ArgumentParser(description='Train VQA model')
@@ -62,23 +62,12 @@ def main():
     print('sample count: {}'.format(len(val_set)))
 
     # model
-    emb_size = 300
-    if cfg.WORD_EMBEDDINGS:
-        emb_names = cfg.WORD_EMBEDDINGS.split('+')
-        emb_size = 0
-        for emb_name in emb_names:
-            emb_path = '{}/word-embedding/{}'.format(cfg.DATA_DIR, emb_name)
-            with open(emb_path) as f:
-                line = f.readline()
-            emb_size += len(line.split()) - 1
-    print('[Info] embedding size: {}'.format(emb_size))
-
     print('[Info] construct model')
     model_group = import_module('models.' + model_group_name)
     model = getattr(model_group, model_name)(
             num_words=val_set.num_words,
             num_ans=val_set.num_ans,
-            emb_size=emb_size)
+            emb_size=get_emb_size())
     model.cuda()
     cudnn.benchmark = True
     print('[Info] model name: ' + args.model)

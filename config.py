@@ -58,6 +58,18 @@ def get_feature_path(split, fea_name):
             __C.DATA_DIR, __C.FEATURE_SOURCE, split, __C.NUM_BOXES, fea_name)
 
 
+def get_emb_size():
+    emb_size = 300
+    if __C.WORD_EMBEDDINGS:
+        emb_names = __C.WORD_EMBEDDINGS.split('+')
+        emb_size = 0
+        for emb_name in emb_names:
+            emb_path = '{}/word-embedding/{}'.format(__C.DATA_DIR, emb_name)
+            with open(emb_path) as f:
+                line = f.readline()
+            emb_size += len(line.split()) - 1
+    return emb_size
+
 ##############################################################################
 # Copy from RCNN
 

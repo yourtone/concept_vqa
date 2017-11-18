@@ -10,7 +10,7 @@ import progressbar
 import numpy as np
 from torch.autograd import Variable
 
-from config import cfg
+from config import cfg, get_emb_size
 from dataset import VQADataset
 
 
@@ -36,17 +36,6 @@ def main():
     dataset = VQADataset('test', model_info[0][0])
     itoa = dataset.codebook['itoa']
 
-    # infer embedding size
-    emb_size = 300
-    if cfg.WORD_EMBEDDINGS:
-        emb_names = cfg.WORD_EMBEDDINGS.split('+')
-        emb_size = 0
-        for emb_name in emb_names:
-            emb_path = '{}/word-embedding/{}'.format(cfg.DATA_DIR, emb_name)
-            with open(emb_path) as f:
-                line = f.readline()
-            emb_size += len(line.split()) - 1
-
     vote_buff = [{} for i in range(len(dataset))]
     conf_buff = np.zeros((len(dataset), len(itoa)))
     que_ids = dataset.que_id
@@ -63,7 +52,7 @@ def main():
         model = getattr(model_group, model_name)(
                 num_words=dataset.num_words,
                 num_ans=dataset.num_ans,
-                emb_size=emb_size)
+                emb_size=get_emb_size())
         checkpoint = torch.load(cp_file, map_location=lambda s, l: s.cuda(0))
         model.load_state_dict(checkpoint['state_dict'])
         model.cuda()
