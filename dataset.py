@@ -23,7 +23,11 @@ class VQADataset(Dataset):
         self.img_feas = []
         for data_split in self.splits:
             fea_fname = get_feature_path(data_split, 'feature')
-            self.img_feas.append(open_memmap(fea_fname, dtype='float32'))
+            if cfg.LOAD_ALL_DATA:
+                img_fea = np.load(fea_fname)
+            else:
+                img_fea = open_memmap(fea_fname, dtype='float32')
+            self.img_feas.append(img_fea)
         self.img_cnts = list(map(len, self.img_feas))
 
         self.model_group_name = None
