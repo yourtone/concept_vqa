@@ -114,12 +114,12 @@ def main():
             and cfg.TEST.SPLITS[0] in ('train2014', 'val2014'))
     trn_set = VQADataset('train', model_group_name)
     train_loader = torch.utils.data.DataLoader(
-            trn_set, batch_size=cfg.BATCH_SIZE, shuffle=True,
+            trn_set, batch_size=args.bs, shuffle=True,
             num_workers=args.workers, pin_memory=True)
     if do_test:
         val_set = VQADataset('test', model_group_name)
         val_loader = torch.utils.data.DataLoader(
-                val_set, batch_size=cfg.BATCH_SIZE, shuffle=False,
+                val_set, batch_size=args.bs, shuffle=False,
                 num_workers=args.workers, pin_memory=True)
 
     # model
@@ -180,8 +180,8 @@ def main():
     else:
         criterion = nn.CrossEntropyLoss().cuda()
     logger.debug('[Info] criterion name: ' + criterion.__class__.__name__)
-    optimizer = torch.optim.RMSprop(model.parameters(), cfg.LEARNING_RATE,
-                                    weight_decay=cfg.WEIGHT_DECAY)
+    optimizer = torch.optim.RMSprop(model.parameters(), args.lr,
+                                    weight_decay=args.wd)
     cudnn.benchmark = True
 
 
@@ -350,7 +350,7 @@ class AverageMeter(object):
 
 def adjust_learning_rate(optimizer, epoch):
     exponent = max(0, (epoch - args.lr_decay_start) // 10 + 1)
-    lr = cfg.LEARNING_RATE * (args.lr_decay_factor ** exponent)
+    lr = args.lr * (args.lr_decay_factor ** exponent)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
     return lr
