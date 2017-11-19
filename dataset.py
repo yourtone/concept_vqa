@@ -22,6 +22,8 @@ class VQADataset(Dataset):
         self.splits = cfg[split.upper()].SPLITS
         self.img_feas = []
         for data_split in self.splits:
+            if data_split == 'vg':
+                continue
             fea_fname = get_feature_path(data_split, 'feature')
             if cfg.LOAD_ALL_DATA:
                 img_fea = np.load(fea_fname)
