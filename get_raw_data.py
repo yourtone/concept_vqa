@@ -49,13 +49,19 @@ def merge_vqa_pair(split_name):
         bar = progressbar.ProgressBar()
         for q in bar(vqa_pairs):
             answers = qid_anns.get(q['question_id']).get('answers')
-            ans_text = map(norm_answer, map(itemgetter('answer'), answers))
-            ans_freq = Counter(ans_text).most_common()
-            T = sum(map(itemgetter(1), ans_freq))
+            for item in answers:
+                item['answer'] = norm_answer(item['answer'])
+
+            ans_text = set(map(itemgetter('answer'), answers))
             ans_score = []
-            for a, c in ans_freq:
-                score = (c * min((c - 1) / 3, 1) + (T-c) * min(c / 3, 1)) / T
-                ans_score.append((a, score))
+            for at in ans_text:
+                accs = []
+                for gt in answers:
+                    other_gt = [a for a in answers if a != gt]
+                    matched_gt = [a for a in other_gt if a['answer'] == at]
+                    accs.append(min(1, len(matched_gt) / 3))
+                ans_score.append((at, sum(accs)/len(accs)))
+            ans_score = sorted(ans_score, key=itemgetter(1), reverse=True)
             q['answers'] = ans_score
         if cfg.DEBUG:
             print('[Debug] one vqa pair')
