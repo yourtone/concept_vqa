@@ -28,6 +28,7 @@ def main():
         ans_freq.update(dict(pair['answers']))
     itoa = [a for a, c in ans_freq.most_common() if c > cfg.MIN_ANS_FREQ]
     atoi = {a:i for i, a in enumerate(itoa)}
+    print('[Info] answer candidates count: {}'.format(len(itoa)))
     if cfg.DEBUG:
         print('[Debug] top answer')
         print(' '.join(itoa[:10]))
@@ -50,6 +51,7 @@ def main():
     assert('<PAD>' not in itow)
     itow = ['<PAD>'] + itow + ['<UNK>']
     wtoi = {w: i for i, w in enumerate(itow)}
+    print('[Info] vocabulary size: {}'.format(len(itow)))
     if cfg.DEBUG:
         print('[Debug] top word')
         print(' '.join(itow[:10]))
