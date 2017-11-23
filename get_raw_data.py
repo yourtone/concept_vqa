@@ -51,7 +51,11 @@ def merge_vqa_pair(split_name):
             answers = qid_anns.get(q['question_id']).get('answers')
             ans_text = map(norm_answer, map(itemgetter('answer'), answers))
             ans_freq = Counter(ans_text).most_common()
-            ans_score = [(a, min(c/3, 1)) for a, c in ans_freq]
+            T = sum(map(itemgetter(1), ans_freq))
+            ans_score = []
+            for a, c in ans_freq:
+                score = (c * min((c - 1) / 3, 1) + (T-c) * min(c / 3, 1)) / T
+                ans_score.append((a, score))
             q['answers'] = ans_score
         if cfg.DEBUG:
             print('[Debug] one vqa pair')

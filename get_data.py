@@ -34,10 +34,11 @@ def main():
         print(' '.join(itoa[:10]))
 
     # filter training sample
-    trn_data_reduce = [d for d in trn_data if d['answers'][0][0] in atoi]
-    print('[Info] reduce {} training sample'.format(
-        len(trn_data)-len(trn_data_reduce)))
-    trn_data = trn_data_reduce
+    if not cfg.SOFT_LOSS:
+        trn_data_reduce = [d for d in trn_data if d['answers'][0][0] in atoi]
+        print('[Info] reduce {} training sample'.format(
+            len(trn_data)-len(trn_data_reduce)))
+        trn_data = trn_data_reduce
 
     # determine vocabulary
     word_freq = Counter()
@@ -85,7 +86,9 @@ def main():
         group.create_dataset('que_id', dtype='int64', data=trn_que_id)
         group.create_dataset('img_pos', dtype='int64', data=trn_img_pos)
         group.create_dataset('que', dtype='int64', data=trn_que)
-        group.create_dataset('ans', dtype='int64', data=trn_ans)
+
+        ans_dtype = 'float16' if cfg.SOFT_LOSS else 'int64'
+        group.create_dataset('ans', dtype=ans_dtype, data=trn_ans)
 
         group = f.create_group('test')
         group.create_dataset('que_id', dtype='int64', data=tst_que_id)
@@ -131,9 +134,16 @@ def encode_que(data, wtoi):
 
 
 def encode_ans(data, atoi):
-    ans = np.zeros((len(data),), dtype='int64')
-    for i, answers in enumerate(map(itemgetter('answers'), data)):
-        ans[i] = atoi.get(answers[0][0])
+    if cfg.SOFT_LOSS:
+        ans = np.zeros((len(data), len(atoi)), dtype='float16')
+        for i, answers in enumerate(map(itemgetter('answers'), data)):
+            for answer, score in answers:
+                if answer in atoi:
+                    ans[i][atoi.get(answer)] = score
+    else:
+        ans = np.zeros((len(data),), dtype='int64')
+        for i, answers in enumerate(map(itemgetter('answers'), data)):
+            ans[i] = atoi.get(answers[0][0])
     return ans
 
 

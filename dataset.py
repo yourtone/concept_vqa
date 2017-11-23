@@ -17,6 +17,8 @@ class VQADataset(Dataset):
         self.que_id = data['que_id'].value
         if 'ans' in data:
             self.ans = data['ans'].value
+            if cfg.SOFT_LOSS:
+                self.ans = self.ans.astype(np.float32)
 
         # load image features
         self.splits = cfg[split.upper()].SPLITS
