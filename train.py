@@ -6,6 +6,7 @@ import time
 import logging
 import datetime
 import json
+import math
 from importlib import import_module
 
 import torch
@@ -39,14 +40,16 @@ parser.add_argument('--model', '-m', default='normal/V2V',
                     help='name of the model')
 parser.add_argument('--gpu_id', default=0, type=int, metavar='N',
                     help='index of the gpu')
-parser.add_argument('--bs', '--batch-size', default=512, type=int, metavar='N',
+parser.add_argument('--bs', '--batch-size', default=64, type=int, metavar='N',
                     help='batch size')
-parser.add_argument('--lr', default=3e-4, type=float, metavar='FLOAT',
+parser.add_argument('--lr', default=7e-4, type=float, metavar='FLOAT',
                     help='initial learning rate')
-parser.add_argument('--lr-decay-start', default=40, type=int, metavar='N',
+parser.add_argument('--lr-decay-start', default=4, type=int, metavar='N',
                     help='epoch number starting decay learning rate')
-parser.add_argument('--lr-decay-factor', default=0.8, type=float, metavar='FLOAT',
+parser.add_argument('--lr-decay-factor', default=0.5, type=float, metavar='FLOAT',
                     help='learning rate decay factor for every 10 epochs')
+parser.add_argument('--lr-decay-freq', default=4, type=int, metavar='N',
+                    help='frequency of learning rate decaying')
 parser.add_argument('--wd', '--weight-decay', default=0, type=float,
                     metavar='FLOAT', help='weight decay')
 parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
@@ -137,6 +140,11 @@ def main():
             num_ans=trn_set.num_ans,
             emb_size=emb_size)
     logger.debug('[Info] model name: ' + args.model)
+    total_param = 0
+    for param in model.parameters():
+        total_param += param.nelement()
+    logger.debug('[Info] total parameters: {}M'
+            .format(math.ceil(total_param / 2**20)))
 
     # initialize word embedding with pretrained
     if cfg.WORD_EMBEDDINGS:
@@ -176,8 +184,8 @@ def main():
     model.cuda()
 
     criterion = nn.CrossEntropyLoss().cuda()
-    optimizer = torch.optim.RMSprop(model.parameters(), args.lr,
-                                    weight_decay=args.wd)
+    optimizer = torch.optim.Adam(model.parameters(), args.lr,
+                                 weight_decay=args.wd)
     cudnn.benchmark = True
 
 
@@ -345,7 +353,7 @@ class AverageMeter(object):
 
 
 def adjust_learning_rate(optimizer, epoch):
-    exponent = max(0, (epoch - args.lr_decay_start) // 10 + 1)
+    exponent = max(0, (epoch - args.lr_decay_start) // args.lr_decay_freq + 1)
     lr = args.lr * (args.lr_decay_factor ** exponent)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr

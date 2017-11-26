@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 
 class V2V(nn.Module):
@@ -210,4 +211,95 @@ class GatedMultiAttModel(nn.Module):
         score = self.pred_net(mul_fea)
 
         return score
+
+
+class MFHModel(nn.Module):
+    def __init__(self, num_words, num_ans, emb_size):
+        super(MFHModel, self).__init__()
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
+        self.gru = nn.GRU(input_size=emb_size,
+                          hidden_size=512,
+                          num_layers=1,
+                          batch_first=True)
+        self.grudp = nn.Dropout(0.3)
+        self.att_mfh = MFH(2048, 512, latent_dim=4,
+                           output_size=1024, block_count=2)
+        self.att_net = nn.Sequential(
+                nn.Linear(2048, 512),
+                nn.Tanh(),
+                nn.Linear(512, 1))
+
+        self.pred_mfh = MFH(2048, 512, latent_dim=4,
+                            output_size=1024, block_count=2)
+        self.pred_net = nn.Linear(2048, num_ans)
+
+    def forward(self, img, que):
+        emb = F.tanh(self.we(que))
+        _, hn = self.gru(emb)
+        hn = self.grudp(hn).squeeze(dim=0)
+        img_norm = F.normalize(img, p=2, dim=2)
+
+        att_w = self.att_net(self.att_mfh(img_norm, hn))
+        att_w_exp = F.softmax(att_w.transpose(0, 1)).permute(1, 2, 0)
+        att_img = torch.bmm(att_w_exp, img_norm)
+        att_img = att_img.view(att_img.size(0), -1)
+
+        score = self.pred_net(self.pred_mfh(att_img, hn))
+
+        return score
+
+
+class MFH(nn.Module):
+    def __init__(self, x_size, y_size, latent_dim,
+                 output_size, block_count, dropout=0.1):
+        super(MFH, self).__init__()
+        hidden_size = latent_dim * output_size
+        self.x2hs = nn.ModuleList([
+            nn.Linear(x_size, hidden_size) for i in range(block_count)])
+        self.y2hs = nn.ModuleList([
+            nn.Linear(y_size, hidden_size) for i in range(block_count)])
+        self.dps = nn.ModuleList([
+            nn.Dropout(dropout) for i in range(block_count)])
+
+        self.latent_dim = latent_dim
+        self.output_size = output_size
+        self.hidden_size = hidden_size
+        self.block_count = block_count
+
+
+    @staticmethod
+    def align_dim(x, y):
+        max_dims = x.size()
+        if x.dim() > y.dim():
+            diff_dim = [1,] * (x.dim() - y.dim())
+            y_size = list(y.size())
+            new_y_size = y_size[:1] + diff_dim + y_size[1:]
+            y = y.view(*new_y_size)
+            max_dims = x.size()
+        elif x.dim() < y.dim():
+            diff_dim = [1,] * (y.dim() - x.dim())
+            x_size = x.size()
+            new_x_size = x_size[:1] + diff_dim + x_size[1:]
+            x = x.view(*new_x_size)
+            max_dims = y.size()
+        return x, y, list(max_dims)
+
+
+    def forward(self, x, y):
+        x, y, max_dims = self.align_dim(x, y)
+        last_exp = Variable(torch.ones(self.hidden_size).type_as(x.data))
+        exp_size = max_dims[:-1] + [self.output_size, self.latent_dim]
+        results = []
+        for i in range(self.block_count):
+            xh = self.x2hs[i](x)
+            yh = self.y2hs[i](y)
+            last_exp = last_exp * self.dps[i](xh * yh)
+
+            z_sum = last_exp.view(exp_size).sum(dim=-1)
+            z_sqrt = z_sum.sign() * (z_sum.abs() + 1e-7).sqrt()
+            z_norm = F.normalize(z_sqrt, p=2, dim=-1)
+
+            results.append(z_norm)
+
+        return torch.cat(results, dim=-1)
 
