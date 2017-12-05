@@ -267,7 +267,7 @@ def load_embeddings(name):
     emb_path = '{}/word-embedding/{}'.format(cfg.DATA_DIR, name)
     logger.debug('[Load] ' + emb_path)
     with open(emb_path) as f:
-        word_vec_txt = [l.strip().split(' ', 1) for l in f.readlines()]
+        word_vec_txt = [l.rstrip().split(' ', 1) for l in f.readlines()]
     vocab, vecs_txt = zip(*word_vec_txt)
     # infer vector dimention
     vec_size = len(vecs_txt[0].split())
