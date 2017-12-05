@@ -251,16 +251,26 @@ def get_class_embedding(class_name, word_vec, emb_size):
 
 def merge_embeddings(embedding_names):
     names = embedding_names.split('+')
-    name = names[0]
-    vocab, vecs = load_embeddings(name)
-    if len(names) > 1:
-        vecs_list = [vecs]
-        for name in names[1:]:
-            _, vecs = load_embeddings(name)
-            # the order of vocab in glove is the same
-            vecs_list.append(vecs)
-            vecs = np.hstack(vecs_list)
-    return dict(zip(vocab, vecs))
+    vocabs = []
+    vecs = []
+    for name in names:
+        vocab, vec = load_embeddings(name)
+        vocabs.append(vocab)
+        vecs.append(vec)
+
+    final_vocab = set(vocabs[0])
+    for vocab in vocabs[1:]:
+        final_vocab &= set(vocab)
+    final_vocab = list(final_vocab)
+
+    final_vec = []
+    for vocab, vec in zip(vocabs, vecs):
+        w2i = dict(zip(vocab, range(len(vocab))))
+        inds = np.array([w2i[w] for w in final_vocab])
+        final_vec.append(vec[inds])
+    final_vec = np.hstack(final_vec)
+
+    return dict(zip(final_vocab, final_vec))
 
 
 def load_embeddings(name):
