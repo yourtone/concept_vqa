@@ -50,6 +50,9 @@ __C.NUM_BOXES = 36
 # name of pretrained embedding
 __C.WORD_EMBEDDINGS = 'glove.6B.300d.txt'
 
+# Use soft sigmoid loss
+__C.SOFT_LOSS = True
+
 # load all data into memory, which will be faster when
 # iterating dataset many times
 __C.LOAD_ALL_DATA = True

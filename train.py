@@ -183,11 +183,14 @@ def main():
 
     model.cuda()
 
-    criterion = nn.CrossEntropyLoss().cuda()
+    if cfg.SOFT_LOSS:
+        criterion = nn.BCEWithLogitsLoss().cuda()
+    else:
+        criterion = nn.CrossEntropyLoss().cuda()
+    logger.debug('[Info] criterion name: ' + criterion.__class__.__name__)
     optimizer = torch.optim.Adam(model.parameters(), args.lr,
                                  weight_decay=args.wd)
     cudnn.benchmark = True
-
 
     # train
     logger.debug('[Info] start training...')
