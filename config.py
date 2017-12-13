@@ -19,9 +19,12 @@ __C.VQA_DIR = 'vqa-tools'
 # Path to log files
 __C.LOG_DIR = 'log'
 
+# Path to Visual Gnome data
+__C.VG_DIR = 'data/vg'
+
 # Splits of VQA to use during training
 __C.TRAIN = edict()
-__C.TRAIN.SPLITS = ('train2014',)
+__C.TRAIN.SPLITS = ('train2014', 'vg')
 
 # Splits of VQA to use during testing
 __C.TEST = edict()

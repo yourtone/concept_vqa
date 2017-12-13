@@ -13,6 +13,8 @@ def main():
     # load data
     trn_data = []
     for split_name in cfg.TRAIN.SPLITS:
+        if split_name == 'vg':
+            continue
         fname = '{}/raw-{}.json'.format(cfg.DATA_DIR, split_name)
         print('[Load] {}'.format(fname))
         trn_data.extend(json.load(open(fname)))
@@ -32,6 +34,12 @@ def main():
     if cfg.DEBUG:
         print('[Debug] top answer')
         print(' '.join(itoa[:10]))
+
+    # augment visual genome data
+    if 'vg' in cfg.TRAIN.SPLITS:
+        fname = '{}/raw-vg.json'.format(cfg.DATA_DIR)
+        print('[Load] {}'.format(fname))
+        trn_data.extend(json.load(open(fname)))
 
     # filter training sample
     if not cfg.SOFT_LOSS:
@@ -99,6 +107,8 @@ def main():
 def get_img_pos(splits, data_ids):
     fea_ids = []
     for split in splits:
+        if split == 'vg':
+            continue
         fea_ids.append(np.load(get_feature_path(split, 'id')))
     if len(fea_ids) > 0:
         fea_ids = np.hstack(fea_ids)
