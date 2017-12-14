@@ -92,6 +92,8 @@ class VQADataset(Dataset):
         if obj_fea_name:
             self.obj_feas = []
             for data_split in self.splits:
+                if data_split == 'vg':
+                    continue
                 obj_fname = get_feature_path(data_split, obj_fea_name)
                 self.obj_feas.append(np.load(obj_fname))
             if len(self.obj_feas) > 0:
