@@ -39,7 +39,11 @@ def main():
     if 'vg' in cfg.TRAIN.SPLITS:
         fname = '{}/raw-vg.json'.format(cfg.DATA_DIR)
         print('[Load] {}'.format(fname))
-        trn_data.extend(json.load(open(fname)))
+        vg_data = json.load(open(fname))
+        vg_data_reduce = [d for d in vg_data if d['answers'][0][0] in atoi]
+        print('[Info] reduce {}/{} vg sample'.format(
+            len(vg_data) - len(vg_data_reduce), len(vg_data)))
+        trn_data.extend(vg_data_reduce)
 
     # filter training sample
     if not cfg.SOFT_LOSS:
