@@ -332,9 +332,9 @@ class AttQuery(object):
         mask = np.zeros((height, width))
         for box, weight in zip(boxes, att_weights):
             x1, y1, x2, y2 = map(int, box)
-            #region = mask[x1:x2+1, y1:y2+1]
+            #region = mask[y1:y2+1, x1:x2+1]
             #region[region < weight] = weight
-            mask[x1:x2+1, y1:y2+1] += weight
+            mask[y1:y2+1, x1:x2+1] += weight
 
         mask = (mask - mask.min() + 0.1) / (mask.max() - mask.min() + 0.1)
         return img * mask[:, :, np.newaxis]
