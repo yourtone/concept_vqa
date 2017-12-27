@@ -16,6 +16,8 @@ from dataset import VQADataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument('model_dir')
+parser.add_argument('--bs', '--batch_size', default=128, type=int,
+                    help='batch size for predicting')
 parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
                     help='optional config file')
 parser.add_argument('--set', dest='set_cfgs', default=None,
@@ -52,7 +54,7 @@ def main():
         # data
         dataset.reload_obj(model_group_name)
         dataloader = torch.utils.data.DataLoader(
-                dataset, batch_size=cfg.BATCH_SIZE, shuffle=False,
+                dataset, batch_size=args.bs, shuffle=False,
                 num_workers=2, pin_memory=True)
 
         # model

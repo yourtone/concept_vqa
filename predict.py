@@ -26,6 +26,8 @@ parser.add_argument('--epoch-freq', default=10, type=int, metavar='N',
                     help='number of epochs to skip for every evaluation')
 parser.add_argument('--model', '-m', default='normal/V2V',
                     help='name of the model')
+parser.add_argument('--bs', '--batch_size', default=128, type=int,
+                    help='batch size for predicting')
 parser.add_argument('--gpu_id', default=0, type=int, metavar='N',
                     help='index of the gpu')
 parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
@@ -57,7 +59,7 @@ def main():
     model_group_name, model_name = args.model.split('/')
     val_set = VQADataset('test', model_group_name)
     val_loader = torch.utils.data.DataLoader(
-            val_set, batch_size=cfg.BATCH_SIZE, shuffle=False,
+            val_set, batch_size=args.bs, shuffle=False,
             num_workers=args.workers, pin_memory=True)
     print('sample count: {}'.format(len(val_set)))
 

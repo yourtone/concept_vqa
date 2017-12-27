@@ -28,6 +28,8 @@ from config import cfg_from_file, cfg_from_list
 parser = argparse.ArgumentParser()
 parser.add_argument('model_dir')
 parser.add_argument('--split', default='val2014')
+parser.add_argument('--bs', '--batch_size', default=128, type=int,
+                    help='batch size for predicting')
 parser.add_argument('--file-ptn', default=None)
 parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
                     help='optional config file')
@@ -125,7 +127,7 @@ class AttQuery(object):
             # dataset
             dataset.reload_obj(model_group_name)
             dataloader = torch.utils.data.DataLoader(
-                    dataset, batch_size=cfg.BATCH_SIZE,
+                    dataset, batch_size=args.bs,
                     shuffle=False, num_workers=2, pin_memory=True)
             # model
             model_group = import_module('models.' + model_group_name)
