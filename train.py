@@ -106,6 +106,8 @@ def main():
     logger.debug('[Info] called with: ' + args_str)
 
     logger.debug('[Info] timestamp: ' + timestamp)
+    logger.debug('[Info] CPU random seed: {}'.format(torch.initial_seed()))
+    logger.debug('[Info] GPU random seed: {}'.format(torch.cuda.initial_seed()))
 
     # select device
     torch.cuda.set_device(args.gpu_id)
