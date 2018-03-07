@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 import json
 from operator import itemgetter
@@ -10,6 +11,7 @@ import progressbar
 import numpy as np
 from torch.autograd import Variable
 
+import get_data
 from config import cfg, cfg_from_file, cfg_from_list, get_emb_size
 from dataset import VQADataset
 
@@ -37,20 +39,15 @@ def main():
     torch.cuda.set_device(args.gpu_id)
     print('[Info] use gpu: {}'.format(torch.cuda.current_device()))
 
-    files = os.listdir(args.model_dir)
-    model_files = [f for f in files if f.endswith('.pth.tar')]
-    model_info = []
-    for cp_file in model_files:
-        file_name = cp_file.rsplit('.', 2)[0]
-        model_group_name, model_name, acc_text, *_ = file_name.split('-')
-        model_acc = int(acc_text)
-        cp_path = os.path.join(args.model_dir, cp_file)
-        model_info.append((model_group_name, model_name, model_acc, cp_path))
+    # get parameters
+    sys.path.insert(0, args.model_dir)
+    from params import params
+    assert len(params) > 1
 
-    model_info = sorted(model_info, key=itemgetter(0))
-    assert len(model_info) > 1
-
-    dataset = VQADataset('test', model_info[0][0])
+    last_cfg = params[0][-1]
+    last_cfg()
+    get_data.main()
+    dataset = VQADataset('test', params[0][1])
     itoa = dataset.codebook['itoa']
 
     vote_buff = [{} for i in range(len(dataset))]
@@ -58,19 +55,27 @@ def main():
     sm_conf_buff = np.zeros((len(dataset), len(itoa)))
     l2_conf_buff = np.zeros((len(dataset), len(itoa)))
     que_ids = dataset.que_id
-    for model_group_name, model_name, model_acc, cp_file in model_info:
+    for fpath, mgrp, mname, acc, cfg_func, in params:
         # data
-        dataset.reload_obj(model_group_name)
+        if cfg_func != last_cfg:
+            cfg_func()
+            get_data.main()
+            last_cfg = cfg_func
+            dataset = VQADataset('test', mgrp)
+            itoa = dataset.codebook['itoa']
+
+        dataset.reload_obj(mgrp)
         dataloader = torch.utils.data.DataLoader(
                 dataset, batch_size=args.bs, shuffle=False,
                 num_workers=2, pin_memory=True)
 
         # model
-        model_group = import_module('models.' + model_group_name)
-        model = getattr(model_group, model_name)(
+        model_group = import_module('models.' + mgrp)
+        model = getattr(model_group, mname)
                 num_words=dataset.num_words,
                 num_ans=dataset.num_ans,
                 emb_size=get_emb_size())
+        cp_file = os.path.join(args.model_dir, fpath)
         checkpoint = torch.load(cp_file, map_location=lambda s, l: s.cuda(0))
         model.load_state_dict(checkpoint['state_dict'])
         model.cuda()
@@ -94,7 +99,7 @@ def main():
             _, ans_ids = torch.max(score.data, dim=1)
             for i, ans_id in enumerate(ans_ids):
                 ans = itoa[ans_id]
-                ans_score = model_acc + vote_buff[start + i].get(ans, 0)
+                ans_score = acc + vote_buff[start + i].get(ans, 0)
                 vote_buff[start + i][ans] = ans_score
 
             start += bs
