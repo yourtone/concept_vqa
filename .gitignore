@@ -2,6 +2,7 @@
 data/
 log/
 vqa-tools/
+vqa-tools
 *.xlsx
 
 # Byte-compiled / optimized / DLL files

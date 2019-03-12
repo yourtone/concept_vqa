@@ -21,28 +21,28 @@ from visdom import Visdom
 
 from dataset import VQADataset
 from eval_tools import get_eval
-from config import cfg, cfg_from_file, cfg_from_list
+from config import cfg
 from predict import predict
 
 
 parser = argparse.ArgumentParser(description='Train VQA model')
 parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
                     help='number of data loading workers (default: 2)')
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
+parser.add_argument('--epochs', default=80, type=int, metavar='N',
                     help='number of total epochs to run')
-parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
+parser.add_argument('--start-epoch', default=-1, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--save-freq', default=1, type=int, metavar='N',
+parser.add_argument('--save-freq', default=100, type=int, metavar='N',
                     help='frequency of saving checkpoint')
-parser.add_argument('--model', '-m', default='normal/V2V',
+parser.add_argument('--model', '-m', default='prob_label/DiffAttModel',
                     help='name of the model')
 parser.add_argument('--gpu_id', default=0, type=int, metavar='N',
                     help='index of the gpu')
 parser.add_argument('--bs', '--batch-size', default=64, type=int, metavar='N',
                     help='batch size')
-parser.add_argument('--lr', default=7e-4, type=float, metavar='FLOAT',
+parser.add_argument('--lr', default=1e-3, type=float, metavar='FLOAT',
                     help='initial learning rate')
 parser.add_argument('--lr-decay-start', default=4, type=int, metavar='N',
                     help='epoch number starting decay learning rate')
@@ -52,10 +52,10 @@ parser.add_argument('--lr-decay-freq', default=4, type=int, metavar='N',
                     help='frequency of learning rate decaying')
 parser.add_argument('--wd', '--weight-decay', default=0, type=float,
                     metavar='FLOAT', help='weight decay')
-parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
-                    help='optional config file')
-parser.add_argument('--set', dest='set_cfgs', default=None,
-                    nargs=argparse.REMAINDER, help='set config keys')
+parser.add_argument('-r', '--resume', action='store_true', 
+                    help='resume from checkpoint')
+parser.add_argument('--timestamp', default='20190126214414',
+                    help='resume from which timestamp')
 
 if cfg.USE_RANDOM_SEED:
     np.random.seed(cfg.SEED)
@@ -67,15 +67,16 @@ logger = logging.getLogger('vqa')
 logger.setLevel(logging.DEBUG)
 
 
+def gen_dataloader(args, data_set, is_train=True):
+    data_loader = torch.utils.data.DataLoader(
+            data_set, batch_size=args.bs, shuffle=is_train,
+            num_workers=args.workers, pin_memory=True)
+    return data_loader
+
 def main():
     global args
     args = parser.parse_args()
     args_str = json.dumps(vars(args), indent=2)
-
-    if args.cfg_file is not None:
-        cfg_from_file(args.cfg_file)
-    if args.set_cfgs is not None:
-        cfg_from_list(args.set_cfgs)
 
     # use timestamp as log subdirectory
     timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
@@ -115,19 +116,14 @@ def main():
     torch.cuda.set_device(args.gpu_id)
     logger.debug('[Info] use gpu: {}'.format(torch.cuda.current_device()))
 
-    # data
+    # load data
     logger.debug('[Info] init dataset')
-    do_test = (len(cfg.TEST.SPLITS) == 1
-            and cfg.TEST.SPLITS[0] in ('train2014', 'val2014'))
+    do_test = (len(cfg.TEST.SPLITS) == 1 and cfg.TEST.SPLITS[0] in ('train2014', 'val2014'))
     trn_set = VQADataset('train', model_group_name)
-    train_loader = torch.utils.data.DataLoader(
-            trn_set, batch_size=args.bs, shuffle=True,
-            num_workers=args.workers, pin_memory=True)
+    train_loader = gen_dataloader(args, trn_set, is_train=True)
     if do_test:
         val_set = VQADataset('test', model_group_name)
-        val_loader = torch.utils.data.DataLoader(
-                val_set, batch_size=args.bs, shuffle=False,
-                num_workers=args.workers, pin_memory=True)
+        val_loader = gen_dataloader(args, val_set, is_train=False)
 
     # model
     emb_size = 300
@@ -147,8 +143,7 @@ def main():
     total_param = 0
     for param in model.parameters():
         total_param += param.nelement()
-    logger.debug('[Info] total parameters: {}M'
-            .format(math.ceil(total_param / 2**20)))
+    logger.debug('[Info] total parameters: {}M'.format(math.ceil(total_param / 2**20)))
 
     # initialize word embedding with pretrained
     if cfg.WORD_EMBEDDINGS:
@@ -163,14 +158,11 @@ def main():
         logger.debug('[debug] word embedding filling count: {}/{}'
                 .format(fill_cnt, len(words)))
         model.we.weight = nn.Parameter(torch.from_numpy(emb))
-
         if model_group_name in ('onehot_label', 'prob_label'):
             # initialize object embedding with pretrained
             obj_emb = model.obj_net[0].weight.data.numpy()
-
             if model_group_name == 'prob_label':
                 obj_emb = obj_emb.T
-
             fill_cnt = 0
             for i, line in enumerate(trn_set.objects_vocab):
                 avail, vec = get_class_embedding(line, word_vec, emb_size)
@@ -179,10 +171,8 @@ def main():
                     fill_cnt += 1
             logger.debug('[debug] class embedding filling count: {}/{}'
                     .format(fill_cnt, len(trn_set.objects_vocab)))
-
             if model_group_name == 'prob_label':
                 obj_emb = obj_emb.T
-
             model.obj_net[0].weight = nn.Parameter(torch.from_numpy(obj_emb))
 
     model.cuda()
@@ -192,18 +182,31 @@ def main():
     else:
         criterion = nn.CrossEntropyLoss().cuda()
     logger.debug('[Info] criterion name: ' + criterion.__class__.__name__)
-    optimizer = torch.optim.Adam(model.parameters(), args.lr,
-                                 weight_decay=args.wd)
+    optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.wd)
     cudnn.benchmark = True
 
+    # resume
+    if args.resume:
+        ckpt = torch.load(os.path.join(cfg.LOG_DIR.split('/')[0],
+                            args.timestamp, 'model-best.pth.tar'))
+        best_acc = ckpt['best_acc']
+        start_epoch = best_epoch = ckpt['best_epoch']
+        model.load_state_dict(ckpt['state_dict'])
+        optimizer.load_state_dict(ckpt['optimizer'])
+    else:
+        ckpt = None
+        best_acc = 0
+        best_epoch = -1
+        start_epoch = args.start_epoch # -1
+
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_decay_freq, 
+                            gamma=args.lr_decay_factor, last_epoch=start_epoch)
     # train
     logger.debug('[Info] start training...')
-    best_acc = 0
-    best_epoch = -1
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(start_epoch+1, args.epochs):
         is_best = False
-        lr = adjust_learning_rate(optimizer, epoch)
-        ploter.append(epoch, lr, 'lr')
+        scheduler.step()
+        ploter.append(epoch, optimizer.param_groups[0]['lr'], 'lr')
 
         loss = train(train_loader, model, criterion, optimizer, epoch)
         ploter.append(epoch, loss, 'train-loss')
@@ -215,10 +218,8 @@ def main():
                 is_best = True
                 best_acc = acc
                 best_epoch = epoch
-
-            logger.debug('Evaluate Result:\t'
-                         'Acc  {0}\t'
-                         'Best {1} ({2})'.format(acc, best_acc, best_epoch))
+            logger.debug('Evaluate Result:\tAcc  {0}\tBest {1} ({2})'
+                        .format(acc, best_acc, best_epoch))
 
         # save checkpoint
         state = {
@@ -227,7 +228,7 @@ def main():
             'best_epoch': best_epoch,
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict()
-            }
+        }
         if epoch % args.save_freq == 0:
             cp_fname = 'checkpoint-{:03}.pth.tar'.format(epoch)
             cp_path = os.path.join(cfg.LOG_DIR, cp_fname)
@@ -362,14 +363,6 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-
-
-def adjust_learning_rate(optimizer, epoch):
-    exponent = max(0, (epoch - args.lr_decay_start) // args.lr_decay_freq + 1)
-    lr = args.lr * (args.lr_decay_factor ** exponent)
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    return lr
 
 
 class Ploter(object):

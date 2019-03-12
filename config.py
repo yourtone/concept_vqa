@@ -24,11 +24,11 @@ __C.VG_DIR = 'data/vg'
 
 # Splits of VQA to use during training
 __C.TRAIN = edict()
-__C.TRAIN.SPLITS = ('train2014', 'vg')
+__C.TRAIN.SPLITS = ('train2014',) #('train2014', 'val2014', 'vg')
 
 # Splits of VQA to use during testing
 __C.TEST = edict()
-__C.TEST.SPLITS = ('val2014',)
+__C.TEST.SPLITS = ('val2014',) #('test2015',) #('test-dev2015',)
 
 # Minimun frequency of the answer which can be choosed as a candidate
 __C.MIN_ANS_FREQ = 16
@@ -41,7 +41,7 @@ __C.MIN_WORD_FREQ = 1
 __C.MAX_QUESTION_LEN = 14
 
 # Random seed
-__C.USE_RANDOM_SEED = True
+__C.USE_RANDOM_SEED = False
 __C.SEED = 42
 
 # source name of feature ('bottomup' or 'densecap')
@@ -134,10 +134,10 @@ def cfg_from_list(cfg_list):
         key_list = k.split('.')
         d = __C
         for subkey in key_list[:-1]:
-            assert d.has_key(subkey)
+            assert subkey in d
             d = d[subkey]
         subkey = key_list[-1]
-        assert d.has_key(subkey)
+        assert subkey in d
         try:
             value = literal_eval(v)
         except:

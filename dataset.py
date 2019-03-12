@@ -12,11 +12,11 @@ class VQADataset(Dataset):
         self.codebook = json.load(open('{}/data.json'.format(cfg.DATA_DIR)))
 
         data = h5py.File('{}/data.h5'.format(cfg.DATA_DIR))['/{}'.format(split)]
-        self.img_pos = data['img_pos'].value
-        self.que = data['que'].value
-        self.que_id = data['que_id'].value
+        self.img_pos = data['img_pos'][()]
+        self.que = data['que'][()]
+        self.que_id = data['que_id'][()]
         if 'ans' in data:
-            self.ans = data['ans'].value
+            self.ans = data['ans'][()]
             if cfg.SOFT_LOSS:
                 self.ans = self.ans.astype(np.float32)
 

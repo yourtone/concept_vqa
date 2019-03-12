@@ -54,3 +54,22 @@ def get_eval(result, split):
     os.unlink(res_file.name)
     return vqa_eval
 
+def get_eval_subset(result, split, quesIds):
+    if split not in ('train2014', 'val2014'):
+        raise ValueError('split must be "train2014" or "val2014"')
+    vqa_tool = VQATool()
+    vqa = vqa_tool.get_vqa(cfg.VQA_DIR, split)
+    que_fname = vqa_tool.get_que_path(cfg.VQA_DIR, split)
+
+    res_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
+    json.dump(result, res_file)
+    res_file.close()
+
+    vqa_res = vqa.loadResNoAssert(res_file.name, que_fname)
+    vqa_eval = VQAEval(vqa, vqa_res, n=2)
+
+    vqa_eval.evaluate(quesIds=quesIds)
+
+    os.unlink(res_file.name)
+    return vqa_eval
+

@@ -369,63 +369,169 @@ class MFHModel(nn.Module):
 
 
 class DiffAttModel(nn.Module):
-     def __init__(self, num_words, num_ans, emb_size):
-         super(DiffAttModel, self).__init__()
-         self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
-         self.gru = nn.GRU(input_size=emb_size,
-                           hidden_size=512,
-                           num_layers=1,
-                           batch_first=True)
-         self.grudp = nn.Dropout(0.3)
-         self.obj_net = nn.Sequential(
-                 nn.Linear(1601, emb_size, bias=False),
-                 nn.Dropout(0.5),
-                 nn.Linear(emb_size, 512),
-                 nn.Tanh())
-         self.att_mfh = MFH(2048+512, 512, latent_dim=4,
+    def __init__(self, num_words, num_ans, emb_size):
+        super(DiffAttModel, self).__init__()
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
+        self.gru = nn.GRU(input_size=emb_size,
+                          hidden_size=512,
+                          num_layers=1,
+                          batch_first=True)
+        self.grudp = nn.Dropout(0.3)
+        self.obj_net = nn.Sequential(
+                nn.Linear(1601, emb_size, bias=False),
+                nn.Dropout(0.5),
+                nn.Linear(emb_size, 512),
+                nn.Tanh())
+        self.att_mfh = MFH(2048+512, 512, latent_dim=4,
+                          output_size=1024, block_count=2)
+        self.att_net1 = nn.Sequential(
+                nn.Linear(1024*2, 512),
+                nn.Tanh(),
+                nn.Linear(512, 1))
+        self.att_net2 = nn.Sequential(
+                nn.Linear(1024*2, 512),
+                nn.Tanh(),
+                nn.Linear(512, 1))
+
+        self.pred_mfh1 = MFH(2048+512, 512, latent_dim=8,
                             output_size=1024, block_count=2)
-         self.att_net1 = nn.Sequential(
-                 nn.Linear(2048, 512),
-                 nn.Tanh(),
-                 nn.Linear(512, 1))
-         self.att_net2 = nn.Sequential(
-                 nn.Linear(2048, 512),
-                 nn.Tanh(),
-                 nn.Linear(512, 1))
+        self.pred_net1 = nn.Linear(1024*2, num_ans)
 
-         self.pred_mfh1 = MFH(2048+512, 512, latent_dim=8,
-                             output_size=1024, block_count=2)
-         self.pred_net1 = nn.Linear(1024*2, num_ans)
+        self.pred_mfh2 = MFH(2048, 512, latent_dim=8,
+                            output_size=1024, block_count=2)
+        self.pred_net2 = nn.Linear(1024*2, num_ans)
 
-         self.pred_mfh2 = MFH(2048, 512, latent_dim=8,
-                             output_size=1024, block_count=2)
-         self.pred_net2 = nn.Linear(1024*2, num_ans)
+    def forward(self, img, que, obj):
+        emb = F.tanh(self.we(que))
+        _, hn = self.gru(emb)
+        hn = self.grudp(hn).squeeze(dim=0)
+        img_norm = F.normalize(img, p=2, dim=2)
+        obj = self.obj_net(obj)
+        obj_norm = F.normalize(obj, p=2, dim=2)
+        merge_fea = torch.cat((img_norm, obj_norm), dim=2)
 
-     def forward(self, img, que, obj):
-         emb = F.tanh(self.we(que))
-         _, hn = self.gru(emb)
-         hn = self.grudp(hn).squeeze(dim=0)
-         img_norm = F.normalize(img, p=2, dim=2)
-         obj = self.obj_net(obj)
-         obj_norm = F.normalize(obj, p=2, dim=2)
-         merge_fea = torch.cat((img_norm, obj_norm), dim=2)
+        fused_fea = self.att_mfh(merge_fea, hn)
 
-         fused_fea = self.att_mfh(merge_fea, hn)
+        att_w1 = self.att_net1(fused_fea)
+        att_w1_exp = F.softmax(att_w1.transpose(0, 1)).permute(1, 2, 0)
+        att_img1 = torch.bmm(att_w1_exp, merge_fea)
+        att_img1 = att_img1.view(att_img1.size(0), -1)
 
-         att_w1 = self.att_net1(fused_fea)
-         att_w1_exp = F.softmax(att_w1.transpose(0, 1)).permute(1, 2, 0)
-         att_img1 = torch.bmm(att_w1_exp, merge_fea)
-         att_img1 = att_img1.view(att_img1.size(0), -1)
+        att_w2 = self.att_net2(fused_fea)
+        att_w2_exp = F.softmax(att_w2.transpose(0, 1)).permute(1, 2, 0)
+        att_img2 = torch.bmm(att_w2_exp, img_norm)
+        att_img2 = att_img2.view(att_img2.size(0), -1)
 
-         att_w2 = self.att_net2(fused_fea)
-         att_w2_exp = F.softmax(att_w2.transpose(0, 1)).permute(1, 2, 0)
-         att_img2 = torch.bmm(att_w2_exp, img_norm)
-         att_img2 = att_img2.view(att_img2.size(0), -1)
+        score1 = self.pred_net1(self.pred_mfh1(att_img1, hn))
+        score2 = self.pred_net2(self.pred_mfh2(att_img2, hn))
 
-         score1 = self.pred_net1(self.pred_mfh1(att_img1, hn))
-         score2 = self.pred_net2(self.pred_mfh2(att_img2, hn))
+        score = score1 + score2
 
-         score = score1 + score2
+        return score
 
-         return score
+
+class SimpMFHModel(nn.Module):
+    def __init__(self, num_words, num_ans, emb_size):
+        super(SimpMFHModel, self).__init__()
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
+        self.gru = nn.GRU(input_size=emb_size,
+                          hidden_size=512,
+                          num_layers=1,
+                          batch_first=True)
+        self.grudp = nn.Dropout(0.3)
+        self.obj_net = nn.Sequential(
+                nn.Linear(1601, emb_size, bias=False),
+                nn.Dropout(0.5),
+                nn.Linear(emb_size, 512),
+                nn.Tanh())
+        self.att_mfh = MFH(2048+512, 512, latent_dim=1,
+                           output_size=1024, block_count=1)
+        self.att_net = nn.Sequential(
+                nn.Linear(1024*1, 512),
+                nn.Tanh(),
+                nn.Linear(512, 1))
+
+        self.pred_mfh = MFH(2048+512, 512, latent_dim=1,
+                            output_size=1024, block_count=1)
+        self.pred_net = nn.Linear(1024*1, num_ans)
+
+    def forward(self, img, que, obj):
+        emb = F.tanh(self.we(que))
+        _, hn = self.gru(emb)
+        hn = self.grudp(hn).squeeze(dim=0)
+        img_norm = F.normalize(img, p=2, dim=2)
+        obj = self.obj_net(obj)
+        obj_norm = F.normalize(obj, p=2, dim=2)
+        merge_fea = torch.cat((img_norm, obj_norm), dim=2)
+
+        att_w = self.att_net(self.att_mfh(merge_fea, hn))
+        att_w_exp = F.softmax(att_w.transpose(0, 1)).permute(1, 2, 0)
+        att_img = torch.bmm(att_w_exp, merge_fea)
+        att_img = att_img.view(att_img.size(0), -1)
+
+        score = self.pred_net(self.pred_mfh(att_img, hn))
+
+        return score
+
+
+class SimpDiffAttModel(nn.Module):
+    def __init__(self, num_words, num_ans, emb_size):
+        super(SimpDiffAttModel, self).__init__()
+        self.we = nn.Embedding(num_words, emb_size, padding_idx=0)
+        self.gru = nn.GRU(input_size=emb_size,
+                          hidden_size=512,
+                          num_layers=1,
+                          batch_first=True)
+        self.grudp = nn.Dropout(0.3)
+        self.obj_net = nn.Sequential(
+                nn.Linear(1601, emb_size, bias=False),
+                nn.Dropout(0.5),
+                nn.Linear(emb_size, 512),
+                nn.Tanh())
+        self.att_mfh = MFH(2048+512, 512, latent_dim=1,
+                          output_size=1024, block_count=1)
+        self.att_net1 = nn.Sequential(
+                nn.Linear(1024*1, 512),
+                nn.Tanh(),
+                nn.Linear(512, 1))
+        self.att_net2 = nn.Sequential(
+                nn.Linear(1024*1, 512),
+                nn.Tanh(),
+                nn.Linear(512, 1))
+
+        self.pred_mfh1 = MFH(2048+512, 512, latent_dim=1,
+                            output_size=1024, block_count=1)
+        self.pred_net1 = nn.Linear(1024*1, num_ans)
+
+        self.pred_mfh2 = MFH(2048, 512, latent_dim=1,
+                            output_size=1024, block_count=1)
+        self.pred_net2 = nn.Linear(1024*1, num_ans)
+
+    def forward(self, img, que, obj):
+        emb = F.tanh(self.we(que))
+        _, hn = self.gru(emb)
+        hn = self.grudp(hn).squeeze(dim=0)
+        img_norm = F.normalize(img, p=2, dim=2)
+        obj = self.obj_net(obj)
+        obj_norm = F.normalize(obj, p=2, dim=2)
+        merge_fea = torch.cat((img_norm, obj_norm), dim=2)
+
+        fused_fea = self.att_mfh(merge_fea, hn)
+
+        att_w1 = self.att_net1(fused_fea)
+        att_w1_exp = F.softmax(att_w1.transpose(0, 1)).permute(1, 2, 0)
+        att_img1 = torch.bmm(att_w1_exp, merge_fea)
+        att_img1 = att_img1.view(att_img1.size(0), -1)
+
+        att_w2 = self.att_net2(fused_fea)
+        att_w2_exp = F.softmax(att_w2.transpose(0, 1)).permute(1, 2, 0)
+        att_img2 = torch.bmm(att_w2_exp, img_norm)
+        att_img2 = att_img2.view(att_img2.size(0), -1)
+
+        score1 = self.pred_net1(self.pred_mfh1(att_img1, hn))
+        score2 = self.pred_net2(self.pred_mfh2(att_img2, hn))
+
+        score = score1 + score2
+
+        return score
 
