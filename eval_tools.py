@@ -15,8 +15,8 @@ class VQATool(object):
     _instances = {}
 
     def __init__(self):
-        self.que_fptn = '{}/Questions/v2_OpenEnded_mscoco_{}_questions.json'
-        self.ann_fptn = '{}/Annotations/v2_mscoco_{}_annotations.json'
+        self.que_fptn = '{}/Questions/Questions_TextVQA_{}.json'
+        self.ann_fptn = '{}/Annotations/Annotations_TextVQA_{}.json'
 
 
     def get_que_path(self, vqa_dir, split):
@@ -36,8 +36,8 @@ class VQATool(object):
 
 
 def get_eval(result, split):
-    if split not in ('train2014', 'val2014'):
-        raise ValueError('split must be "train2014" or "val2014"')
+    if split not in ('train', 'val'):
+        raise ValueError('split must be "train" or "val"')
     vqa_tool = VQATool()
     vqa = vqa_tool.get_vqa(cfg.VQA_DIR, split)
     que_fname = vqa_tool.get_que_path(cfg.VQA_DIR, split)
@@ -55,8 +55,8 @@ def get_eval(result, split):
     return vqa_eval
 
 def get_eval_subset(result, split, quesIds):
-    if split not in ('train2014', 'val2014'):
-        raise ValueError('split must be "train2014" or "val2014"')
+    if split not in ('train', 'val'):
+        raise ValueError('split must be "train" or "val"')
     vqa_tool = VQATool()
     vqa = vqa_tool.get_vqa(cfg.VQA_DIR, split)
     que_fname = vqa_tool.get_que_path(cfg.VQA_DIR, split)

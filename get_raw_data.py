@@ -13,7 +13,7 @@ from config import cfg
 
 
 def main():
-    for split_name in ('train2014', 'val2014', 'test-dev2015', 'test2015'):
+    for split_name in ('train', 'val', 'test'):
         pairs = load_vqa_data(split_name)
         fname = '{}/raw-{}.json'.format(cfg.DATA_DIR, split_name)
         print('[Store] {}'.format(fname))
@@ -27,9 +27,9 @@ def main():
 
 
 def load_vqa_data(split_name):
-    qfname = '{}/Questions/v2_OpenEnded_mscoco_{}_questions.json'.format(
+    qfname = '{}/Questions/Questions_TextVQA_{}.json'.format(
             cfg.VQA_DIR, split_name)
-    afname = '{}/Annotations/v2_mscoco_{}_annotations.json'.format(
+    afname = '{}/Annotations/Annotations_TextVQA_{}.json'.format(
             cfg.VQA_DIR, split_name)
 
     print('[Load] load question data from "{}"'.format(qfname))

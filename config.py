@@ -11,7 +11,7 @@ cfg = __C
 __C.DEBUG = True
 
 # Path to data
-__C.DATA_DIR = 'data'
+__C.DATA_DIR = 'dataTVQA'#'data'#'dataTVQA'
 
 # Path to vqa tools
 __C.VQA_DIR = 'vqa-tools'
@@ -24,14 +24,14 @@ __C.VG_DIR = 'data/vg'
 
 # Splits of VQA to use during training
 __C.TRAIN = edict()
-__C.TRAIN.SPLITS = ('train2014',) #('train2014', 'val2014', 'vg')
+__C.TRAIN.SPLITS = ('train',) #('train', 'val')
 
 # Splits of VQA to use during testing
 __C.TEST = edict()
-__C.TEST.SPLITS = ('val2014',) #('test2015',) #('test-dev2015',)
+__C.TEST.SPLITS = ('val',) #('test',)
 
 # Minimun frequency of the answer which can be choosed as a candidate
-__C.MIN_ANS_FREQ = 16
+__C.MIN_ANS_FREQ = 1
 
 # Minimun frequency of the word which can be included in the vocaburay
 __C.MIN_WORD_FREQ = 1
@@ -48,7 +48,7 @@ __C.SEED = 42
 __C.FEATURE_SOURCE = 'bottomup'
 
 # number of boxes per image
-__C.NUM_BOXES = 36
+__C.NUM_BOXES = 100
 
 # name of pretrained embedding
 __C.WORD_EMBEDDINGS = 'glove.6B.300d.txt'
@@ -62,8 +62,8 @@ __C.LOAD_ALL_DATA = True
 
 
 def get_feature_path(split, fea_name):
-    if split == 'test-dev2015':
-        split = 'test2015'
+    if split == 'test-dev':
+        split = 'test'
     return '{}/image-feature/{}/{}_{}_{}.npy'.format(
             __C.DATA_DIR, __C.FEATURE_SOURCE, split, __C.NUM_BOXES, fea_name)
 

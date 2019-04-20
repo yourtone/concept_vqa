@@ -1,8 +1,12 @@
 # custom directory
 data/
+data
+dataTVQA/
+dataTVQA
 log/
 vqa-tools/
 vqa-tools
+vqa-tools-ori
 *.xlsx
 
 # Byte-compiled / optimized / DLL files
