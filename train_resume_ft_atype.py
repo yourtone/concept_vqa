@@ -78,7 +78,7 @@ parser.add_argument('--ft_epoch', default=30, type=int, metavar='N',
                     help='at which epoch to finetune using train_subset')
 parser.add_argument('-r', '--resume', action='store_true', 
                     help='resume from checkpoint')
-parser.add_argument('--ts', '--timestamp', default='20190126214414',
+parser.add_argument('--ts', default='20190126214414',
                     help='resume from which timestamp')
 parser.add_argument('--pred_subset', action='store_true', 
                     help='validate on subset by atype')
@@ -134,9 +134,9 @@ def select_subset(VQAset, sel=None):
             VQAset.ans = VQAset.ans[sel]
         return VQAset
 
-def gen_dataloader(args, data_set, is_train=True):
+def gen_dataloader(args, data_set, shuffle=True):
     data_loader = torch.utils.data.DataLoader(
-            data_set, batch_size=args.bs, shuffle=is_train,
+            data_set, batch_size=args.bs, shuffle=shuffle,
             num_workers=args.workers, pin_memory=True)
     return data_loader
 
@@ -207,10 +207,10 @@ def main():
     logger.debug('[Info] init dataset')
     do_test = (len(cfg.TEST.SPLITS) == 1 and cfg.TEST.SPLITS[0] in ('train2014', 'val2014'))
     trn_set = VQADataset('train', model_group_name)
-    train_loader = gen_dataloader(args, trn_set, is_train=True)
+    train_loader = gen_dataloader(args, trn_set, shuffle=True)
     if do_test:
         val_set = VQADataset('test', model_group_name)
-        val_loader = gen_dataloader(args, val_set, is_train=False)
+        val_loader = gen_dataloader(args, val_set, shuffle=False)
 
     # model
     emb_size = 300
@@ -275,7 +275,7 @@ def main():
     # resume
     if args.resume:
         ckpt = torch.load(os.path.join(cfg.LOG_DIR.split('/')[0],
-                            args.timestamp, 'model-best.pth.tar'))
+                            args.ts, 'model-best.pth.tar'))
         best_acc = ckpt['best_acc']
         start_epoch = best_epoch = ckpt['best_epoch']
         model.load_state_dict(ckpt['state_dict'])
@@ -310,7 +310,7 @@ def main():
                 .format(queIds.shape[0], len(trn_quesIds)))
             trn_set = select_subset(trn_set, sel)
             # set train loader
-            train_loader = gen_dataloader(args, trn_set, is_train=True)
+            train_loader = gen_dataloader(args, trn_set, shuffle=True)
             # validation set
             if do_test and args.pred_subset:
                 # load atypes
@@ -323,7 +323,7 @@ def main():
                     .format(queIds.shape[0], len(val_quesIds)))
                 val_set = select_subset(val_set, sel)
                 # set val loader
-                val_loader = gen_dataloader(args, val_set, is_train=False)
+                val_loader = gen_dataloader(args, val_set, shuffle=False)
 
 
         loss = train(train_loader, model, criterion, optimizer, epoch)
