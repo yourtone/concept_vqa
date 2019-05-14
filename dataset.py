@@ -36,6 +36,9 @@ class VQADataset(Dataset):
 
         self.model_group_name = None
         self.reload_obj(model_group_name)
+        if model_group_name == self.model_group_name and model_group_name == 'ocr_label':
+            self.model_group_name = None
+        self.reload_ocr(model_group_name)
 
 
     def _split_pos(self, abs_ip):
@@ -60,6 +63,9 @@ class VQADataset(Dataset):
 
         if hasattr(self, 'obj_feas'):
             item.append(np.array(self.obj_feas[abs_ip]))
+
+        if hasattr(self, 'ocr_feas'):
+            item.append(np.array(self.ocr_feas[abs_ip]))
 
         if hasattr(self, 'ans'):
             item.append(self.ans[idx])
@@ -104,6 +110,31 @@ class VQADataset(Dataset):
             with open('data/objects_vocab.txt') as f:
                 self.objects_vocab = f.read().splitlines()
             self.objects_vocab = ['__no_objects__'] + self.objects_vocab
+
+        self.model_group_name = model_group_name
+
+
+    def reload_ocr(self, model_group_name):
+        if model_group_name == self.model_group_name:
+            return
+
+        if hasattr(self, 'ocr_feas'):
+            del self.ocr_feas
+
+        # load ocr features
+        ocr_fea_name = None
+        if model_group_name == 'ocr_label':
+            ocr_fea_name = 'ocr'
+
+        if ocr_fea_name:
+            self.ocr_feas = []
+            for data_split in self.splits:
+                if data_split == 'vg':
+                    continue
+                ocr_fname = get_feature_path(data_split, ocr_fea_name, num=50)
+                self.ocr_feas.append(np.load(ocr_fname))
+            if len(self.ocr_feas) > 0:
+                self.ocr_feas = np.vstack(self.ocr_feas)
 
         self.model_group_name = model_group_name
 

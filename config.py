@@ -61,11 +61,11 @@ __C.SOFT_LOSS = True
 __C.LOAD_ALL_DATA = True
 
 
-def get_feature_path(split, fea_name):
+def get_feature_path(split, fea_name, num=__C.NUM_BOXES):
     if split == 'test-dev':
         split = 'test'
     return '{}/image-feature/{}/{}_{}_{}.npy'.format(
-            __C.DATA_DIR, __C.FEATURE_SOURCE, split, __C.NUM_BOXES, fea_name)
+            __C.DATA_DIR, __C.FEATURE_SOURCE, split, num, fea_name)
 
 
 def get_emb_size():

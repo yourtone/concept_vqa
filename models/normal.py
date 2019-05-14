@@ -213,13 +213,13 @@ class MFHModel(nn.Module):
         self.att_mfh = MFH(2048, 512, latent_dim=4,
                            output_size=1024, block_count=2)
         self.att_net = nn.Sequential(
-                nn.Linear(2048, 512),
+                nn.Linear(1024*2, 512),
                 nn.Tanh(),
                 nn.Linear(512, 1))
 
         self.pred_mfh = MFH(2048, 512, latent_dim=4,
                             output_size=1024, block_count=2)
-        self.pred_net = nn.Linear(2048, num_ans)
+        self.pred_net = nn.Linear(1024*2, num_ans)
 
     def forward(self, img, que):
         emb = F.tanh(self.we(que))
@@ -228,7 +228,7 @@ class MFHModel(nn.Module):
         img_norm = F.normalize(img, p=2, dim=2)
 
         att_w = self.att_net(self.att_mfh(img_norm, hn))
-        att_w_exp = F.softmax(att_w.transpose(0, 1)).permute(1, 2, 0)
+        att_w_exp = F.softmax(att_w, dim=1).permute(0, 2, 1)
         att_img = torch.bmm(att_w_exp, img_norm)
         att_img = att_img.view(att_img.size(0), -1)
 
