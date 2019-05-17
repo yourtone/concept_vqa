@@ -55,19 +55,19 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--save-freq', default=100, type=int, metavar='N',
                     help='frequency of saving checkpoint')
-parser.add_argument('--model', '-m', default='normal/MFHModel',
+parser.add_argument('--model', '-m', default='ocr_label/MFHModel',
                     help='name of the model')
 parser.add_argument('--gpu_id', default=0, type=int, metavar='N',
                     help='index of the gpu')
 parser.add_argument('--bs', '--batch-size', default=64, type=int, metavar='N',
                     help='batch size')
-parser.add_argument('--lr', default=1e-3, type=float, metavar='FLOAT',
+parser.add_argument('--lr', default=6e-3, type=float, metavar='FLOAT',
                     help='initial learning rate')
-parser.add_argument('--lr-decay-start', default=4, type=int, metavar='N',
+parser.add_argument('--lr-decay-start', default=8, type=int, metavar='N',
                     help='epoch number starting decay learning rate')
-parser.add_argument('--lr-decay-factor', default=0.5, type=float, metavar='FLOAT',
+parser.add_argument('--lr-decay-factor', default=0.6, type=float, metavar='FLOAT',
                     help='learning rate decay factor for every 10 epochs')
-parser.add_argument('--lr-decay-freq', default=4, type=int, metavar='N',
+parser.add_argument('--lr-decay-freq', default=8, type=int, metavar='N',
                     help='frequency of learning rate decaying')
 parser.add_argument('--wd', '--weight-decay', default=0, type=float,
                     metavar='FLOAT', help='weight decay')
