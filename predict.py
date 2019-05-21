@@ -18,22 +18,18 @@ parser.add_argument('checkpoint', metavar='DIR',
                     help='directory of checkpoints')
 parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
                     help='number of data loading workers (default: 2)')
-parser.add_argument('--start-epoch', default=150, type=int, metavar='N',
+parser.add_argument('--start-epoch', default=15, type=int, metavar='N',
                     help='epoch evaluation starting at')
-parser.add_argument('--end-epoch', default=300, type=int, metavar='N',
+parser.add_argument('--end-epoch', default=45, type=int, metavar='N',
                     help='epoch evaluation ending at')
-parser.add_argument('--epoch-freq', default=10, type=int, metavar='N',
+parser.add_argument('--epoch-freq', default=5, type=int, metavar='N',
                     help='number of epochs to skip for every evaluation')
-parser.add_argument('--model', '-m', default='normal/V2V',
+parser.add_argument('--model', '-m', default='ocr_label/MFHModel',
                     help='name of the model')
 parser.add_argument('--bs', '--batch_size', default=128, type=int,
                     help='batch size for predicting')
 parser.add_argument('--gpu_id', default=0, type=int, metavar='N',
                     help='index of the gpu')
-parser.add_argument('--cfg', dest='cfg_file', default=None, type=str,
-                    help='optional config file')
-parser.add_argument('--set', dest='set_cfgs', default=None,
-                    nargs=argparse.REMAINDER, help='set config keys')
 
 
 def main():
@@ -41,11 +37,6 @@ def main():
     args = parser.parse_args()
     args_str = json.dumps(vars(args), indent=2)
     print('[Info] called with: ' + args_str)
-
-    if args.cfg_file is not None:
-        cfg_from_file(args.cfg_file)
-    if args.set_cfgs is not None:
-        cfg_from_list(args.set_cfgs)
 
     # checkpoint directory
     cfg.LOG_DIR= os.path.join(cfg.LOG_DIR, args.checkpoint)

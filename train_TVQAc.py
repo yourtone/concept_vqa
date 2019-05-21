@@ -357,21 +357,6 @@ def predict(val_loader, model):
         results.extend(format_result(sample[0], score, qid_ocr))
     return results
 
-def format_result_ori(que_ids, scores, qid_ocr):
-    _, ans_ids = torch.max(scores.data, dim=1)
-    result = []
-    for que_id, ans_id in zip(que_ids, ans_ids):
-        itoa = qid_ocr[str(que_id)]
-        if len(itoa) == 0:
-            itoa = ['yes', 'unanswerable', 'answering does not require reading text in the image',
-                'no', '2', 'lg', '1', '3', '5', 'samsung']
-        if ans_id >= len(itoa):
-            print(que_id)
-            ans_id = np.random.randint(len(itoa))
-        result.append({'question_id': que_id,
-                       'answer': itoa[ans_id]})
-    return result
-
 def format_result(que_ids, scores, qid_ocr):
     result = []
     for i, que_id in enumerate(que_ids):
