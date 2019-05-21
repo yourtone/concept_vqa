@@ -101,8 +101,8 @@ def main():
     # setting log handlers
     fh = logging.FileHandler(os.path.join(cfg.LOG_DIR, 'log'))
     fh.setLevel(logging.DEBUG)
-    fhc = logging.FileHandler('current.log')
-    fhc.setLevel(logging.DEBUG)
+    #fhc = logging.FileHandler('current.log')
+    #fhc.setLevel(logging.DEBUG)
     sh = logging.StreamHandler(sys.stdout)
     sh.setLevel(logging.DEBUG)
 
@@ -111,9 +111,9 @@ def main():
     formatter = logging.Formatter(fmt, datefmt)
 
     fh.setFormatter(formatter)
-    fhc.setFormatter(formatter)
+    #fhc.setFormatter(formatter)
     logger.addHandler(fh)
-    logger.addHandler(fhc)
+    #logger.addHandler(fhc)
     logger.addHandler(sh)
     logger.debug('[Info] called with: ' + args_str)
 
