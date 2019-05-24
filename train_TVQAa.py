@@ -241,7 +241,7 @@ def main():
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict()
         }
-        if epoch % args.save_freq == 0:
+        if epoch % args.save_freq == 0 and epoch != 0:
             cp_fname = 'checkpoint-{:03}.pth.tar'.format(epoch)
             cp_path = os.path.join(cfg.LOG_DIR, cp_fname)
             torch.save(state, cp_path)

@@ -11,7 +11,8 @@ class VQADataset(Dataset):
     def  __init__(self, split, model_group_name):
         self.codebook = json.load(open('{}/data.json'.format(cfg.DATA_DIR)))
 
-        data = h5py.File('{}/data.h5'.format(cfg.DATA_DIR))['/{}'.format(split)]
+        f = h5py.File('{}/data.h5'.format(cfg.DATA_DIR), 'r')
+        data = f['/{}'.format(split)]
         self.img_pos = data['img_pos'][()]
         self.que = data['que'][()]
         self.que_id = data['que_id'][()]
@@ -19,6 +20,7 @@ class VQADataset(Dataset):
             self.ans = data['ans'][()]
             if cfg.SOFT_LOSS:
                 self.ans = self.ans.astype(np.float32)
+        f.close()
 
         # load image features
         self.splits = cfg[split.upper()].SPLITS
@@ -36,9 +38,9 @@ class VQADataset(Dataset):
 
         self.model_group_name = None
         self.reload_obj(model_group_name)
-        if model_group_name == self.model_group_name and model_group_name == 'ocr_label':
+        if model_group_name in ['ocr_label']:
             self.model_group_name = None
-        self.reload_ocr(model_group_name)
+            self.reload_ocr(model_group_name)
 
 
     def _split_pos(self, abs_ip):
@@ -122,16 +124,15 @@ class VQADataset(Dataset):
             del self.ocr_feas
 
         # load ocr features
-        ocr_fea_name = None
-        if model_group_name == 'ocr_label':
-            ocr_fea_name = 'ocr'
+        if model_group_name in ['ocr_label']:
+            ocr_fea_name = 'ocr'#'ocr-cls'#
 
-        if ocr_fea_name:
             self.ocr_feas = []
             for data_split in self.splits:
                 if data_split == 'vg':
                     continue
                 ocr_fname = get_feature_path(data_split, ocr_fea_name, num=50)
+                #ocr_fname = get_feature_path(data_split, ocr_fea_name)
                 self.ocr_feas.append(np.load(ocr_fname))
             if len(self.ocr_feas) > 0:
                 self.ocr_feas = np.vstack(self.ocr_feas)
