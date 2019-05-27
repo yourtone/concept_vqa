@@ -171,10 +171,10 @@ def main():
                 .format(fill_cnt, len(words)))
         model.we.weight = nn.Parameter(torch.from_numpy(emb))
 
-    itoa_emb = np.load('{}/image-feature/bottomup/ocr_bert.new.300/itoa_ocr.npy'
+    itoa_emb = np.load('{}/image-feature/bottomup/itoa_emb.npy'
         .format(cfg.DATA_DIR)) # (8205, 300)
-    # model.ans_emb_net.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False) #
-    # model.ans_emb_net2.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False) #
+    # model.ans_emb_net.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False)
+    # model.ans_emb_net2.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False)
 
     total_param = 0
     for param in model.parameters():
@@ -229,7 +229,7 @@ def main():
                 is_best = True
                 best_acc = acc
                 best_epoch = epoch
-            logger.debug('Evaluate Result:\tAcc  {0}\tBest {1} ({2})'
+            logger.debug('Evaluate Result:\tAcc  {0}%\tBest {1}%(@{2})'
                 .format(acc, best_acc, best_epoch))
 
         # save checkpoint

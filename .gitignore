@@ -8,6 +8,7 @@ vqa-tools/
 vqa-tools
 vqa-tools-ori
 *.xlsx
+*.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

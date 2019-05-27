@@ -38,7 +38,7 @@ from config import cfg
 parser = argparse.ArgumentParser(description='Train VQA model')
 parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
                     help='number of data loading workers (default: 2)')
-parser.add_argument('--epochs', default=80, type=int, metavar='N',
+parser.add_argument('--epochs', default=50, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=-1, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -54,11 +54,11 @@ parser.add_argument('--bs', '--batch-size', default=64, type=int, metavar='N',
                     help='batch size')
 parser.add_argument('--lr', default=6e-3, type=float, metavar='FLOAT',
                     help='initial learning rate')
-parser.add_argument('--lr-decay-start', default=8, type=int, metavar='N',
+parser.add_argument('--lr-decay-start', default=6, type=int, metavar='N',
                     help='epoch number starting decay learning rate')
-parser.add_argument('--lr-decay-factor', default=0.6, type=float, metavar='FLOAT',
+parser.add_argument('--lr-decay-factor', default=0.7, type=float, metavar='FLOAT',
                     help='learning rate decay factor for every 10 epochs')
-parser.add_argument('--lr-decay-freq', default=8, type=int, metavar='N',
+parser.add_argument('--lr-decay-freq', default=6, type=int, metavar='N',
                     help='frequency of learning rate decaying')
 parser.add_argument('--wd', default=0, type=float,
                     metavar='FLOAT', help='weight decay')
@@ -171,10 +171,10 @@ def main():
                 .format(fill_cnt, len(words)))
         model.we.weight = nn.Parameter(torch.from_numpy(emb))
 
-    itoa_emb = np.load('{}/image-feature/bottomup/ocr_bert.new.300/itoa_ocr.npy'
+    itoa_emb = np.load('{}/image-feature/bottomup/itoa_emb.npy'
         .format(cfg.DATA_DIR)) # (8205, 300)
-    # model.ans_emb_net.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False) #
-    # model.ans_emb_net2.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False) #
+    # model.ans_emb_net.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False)
+    # model.ans_emb_net2.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False)
 
     total_param = 0
     for param in model.parameters():
@@ -229,7 +229,7 @@ def main():
                 is_best = True
                 best_acc = acc
                 best_epoch = epoch
-            logger.debug('Evaluate Result:\tAcc  {0}\tBest {1} ({2})'
+            logger.debug('Evaluate Result:\tAcc  {0}%\tBest {1}%(@{2})'
                 .format(acc, best_acc, best_epoch))
 
         # save checkpoint
