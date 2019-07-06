@@ -47,8 +47,14 @@ __C.SEED = 42
 # source name of feature ('bottomup' or 'densecap')
 __C.FEATURE_SOURCE = 'bottomup'
 
+# folder name of ocr feature
+__C.OCREMD_SOURCE = 'ocr'
+
 # number of boxes per image
 __C.NUM_BOXES = 100
+
+# number of ocr labels per image
+__C.NUM_OCRS = 50
 
 # name of pretrained embedding
 __C.WORD_EMBEDDINGS = 'bert.PCA.300d.txt'
@@ -61,11 +67,18 @@ __C.SOFT_LOSS = True
 __C.LOAD_ALL_DATA = True
 
 
-def get_feature_path(split, fea_name, num=__C.NUM_BOXES):
+def get_feature_path(split, fea_name):
     if split == 'test-dev':
         split = 'test'
     return '{}/image-feature/{}/{}_{}_{}.npy'.format(
-            __C.DATA_DIR, __C.FEATURE_SOURCE, split, num, fea_name)
+            __C.DATA_DIR, __C.FEATURE_SOURCE, split, __C.NUM_BOXES, fea_name)
+
+
+def get_ocr_path(split, fea_name):
+    if split == 'test-dev':
+        split = 'test'
+    return '{}/image-feature/{}/{}_{}_{}.npy'.format(
+            __C.DATA_DIR, __C.OCREMD_SOURCE, split, __C.NUM_OCRS, fea_name)
 
 
 def get_emb_size():

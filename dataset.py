@@ -5,7 +5,7 @@ import numpy as np
 from numpy.lib.format import open_memmap
 from torch.utils.data import Dataset
 
-from config import cfg, get_feature_path
+from config import cfg, get_feature_path, get_ocr_path
 
 class VQADataset(Dataset):
     def  __init__(self, split, model_group_name):
@@ -131,8 +131,8 @@ class VQADataset(Dataset):
             for data_split in self.splits:
                 if data_split == 'vg':
                     continue
-                ocr_fname = get_feature_path(data_split, ocr_fea_name, num=50)
-                #ocr_fname = get_feature_path(data_split, ocr_fea_name)
+                ocr_fname = get_ocr_path(data_split, ocr_fea_name)
+                #ocr_fname = get_ocr_path(data_split, ocr_fea_name, num=50)
                 self.ocr_feas.append(np.load(ocr_fname))
             if len(self.ocr_feas) > 0:
                 self.ocr_feas = np.vstack(self.ocr_feas)

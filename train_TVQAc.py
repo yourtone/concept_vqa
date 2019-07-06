@@ -171,8 +171,8 @@ def main():
                 .format(fill_cnt, len(words)))
         model.we.weight = nn.Parameter(torch.from_numpy(emb))
 
-    itoa_emb = np.load('{}/image-feature/bottomup/itoa_emb.npy'
-        .format(cfg.DATA_DIR)) # (8205, 300)
+    itoa_emb = np.load('{}/image-feature/{}/itoa_emb.npy'
+        .format(cfg.DATA_DIR, cfg.OCREMD_SOURCE)) # (8205, 300)
     # model.ans_emb_net.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False)
     # model.ans_emb_net2.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False)
 
