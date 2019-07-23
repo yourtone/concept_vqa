@@ -171,10 +171,10 @@ def main():
                 .format(fill_cnt, len(words)))
         model.we.weight = nn.Parameter(torch.from_numpy(emb))
 
-    itoa_emb = np.load('{}/image-feature/{}/itoa_emb.npy'
+    ans_emb = np.load('{}/image-feature/{}/ans_emb.npy'
         .format(cfg.DATA_DIR, cfg.OCREMD_SOURCE)) # (8205, 300)
-    # model.ans_emb_net.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False)
-    # model.ans_emb_net2.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False)
+    # model.ans_emb_net.weight = nn.Parameter(torch.from_numpy(ans_emb), requires_grad=False)
+    # model.ans_emb_net2.weight = nn.Parameter(torch.from_numpy(ans_emb), requires_grad=False)
 
     total_param = 0
     for param in model.parameters():
@@ -219,11 +219,11 @@ def main():
         lr = adjust_learning_rate(optimizer, epoch)
         ploter.append(epoch, lr, 'lr')
 
-        loss = train(train_loader, model, criterion, optimizer, epoch, itoa_emb)
+        loss = train(train_loader, model, criterion, optimizer, epoch, ans_emb)
         ploter.append(epoch, loss, 'train-loss')
 
         if do_test:
-            acc = validate(val_loader, model, criterion, epoch, itoa_emb)
+            acc = validate(val_loader, model, criterion, epoch, ans_emb)
             ploter.append(epoch, acc, 'val-acc')
             if acc > best_acc:
                 is_best = True
@@ -287,13 +287,13 @@ def load_embeddings(name):
     return vocab, vecs
 
 
-def train(train_loader, model, criterion, optimizer, epoch, itoa_emb):
+def train(train_loader, model, criterion, optimizer, epoch, ans_emb):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
 
     model.train()
-    itoa_emb = Variable(torch.from_numpy(itoa_emb).transpose(0,1)).cuda() # (300, 8205)
+    ans_emb = Variable(torch.from_numpy(ans_emb).transpose(0,1)).cuda() # (300, 8205)
 
     end = time.time()
     # sample: (que_id, img, que, [obj], ans)
@@ -303,7 +303,7 @@ def train(train_loader, model, criterion, optimizer, epoch, itoa_emb):
         sample_var = [Variable(d).cuda() for d in list(sample)[1:]]
 
         fuse_emb = model(*sample_var[:-1]) # (64, 300)
-        score = torch.mm(fuse_emb, itoa_emb) # (64, 8205)
+        score = torch.mm(fuse_emb, ans_emb) # (64, 8205)
         loss = criterion(score, sample_var[-1])
 
         losses.update(loss.data[0], sample[0].size(0))
@@ -326,8 +326,8 @@ def train(train_loader, model, criterion, optimizer, epoch, itoa_emb):
     return losses.avg
 
 
-def validate(val_loader, model, criterion, epoch, itoa_emb, quesIds=None):
-    results = predict(val_loader, model, itoa_emb)
+def validate(val_loader, model, criterion, epoch, ans_emb, quesIds=None):
+    results = predict(val_loader, model, ans_emb)
     if quesIds is None:
         vqa_eval = get_eval(results, cfg.TEST.SPLITS[0])
     else:
@@ -343,11 +343,11 @@ def validate(val_loader, model, criterion, epoch, itoa_emb, quesIds=None):
 
     return vqa_eval.accuracy['overall']
 
-def predict(val_loader, model, itoa_emb):
+def predict(val_loader, model, ans_emb):
     model.eval()
     itoa = val_loader.dataset.codebook['itoa']
-    itoa_emb = Variable(torch.from_numpy(itoa_emb)).cuda() # (8205, 300)
-    itoa_emb = itoa_emb.unsqueeze(0) # (1, 8205, 300)
+    ans_emb = Variable(torch.from_numpy(ans_emb)).cuda() # (8205, 300)
+    ans_emb = ans_emb.unsqueeze(0) # (1, 8205, 300)
     qid_ocr_file = os.path.join(cfg.DATA_DIR, 'qid_ocr_{}.json'.format(cfg.TEST.SPLITS[0]))
     qid_ocr = json.load(open(qid_ocr_file, 'r'))
     results = []
@@ -356,7 +356,7 @@ def predict(val_loader, model, itoa_emb):
     for sample in bar(val_loader):
         sample_var = [Variable(d).cuda() for d in list(sample)[1:]]
         fuse_emb = model(*sample_var) # (64, 300)
-        ans_emb = torch.cat((itoa_emb.expand(sample_var[-1].data.size(0),-1,-1), sample_var[-1]), 1) # (64, 8205+50, 300)
+        ans_emb = torch.cat((ans_emb.expand(sample_var[-1].data.size(0),-1,-1), sample_var[-1]), 1) # (64, 8205+50, 300)
         score = torch.bmm(ans_emb, fuse_emb.unsqueeze(2)).squeeze() # (64, 8205+50)
         results.extend(format_result(sample[0], score, itoa, qid_ocr))
     return results

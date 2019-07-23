@@ -171,10 +171,10 @@ def main():
                 .format(fill_cnt, len(words)))
         model.we.weight = nn.Parameter(torch.from_numpy(emb))
 
-    itoa_emb = np.load('{}/image-feature/{}/itoa_emb.npy'
+    ans_emb = np.load('{}/image-feature/{}/ans_emb.npy'
         .format(cfg.DATA_DIR, cfg.OCREMD_SOURCE)) # (8205, 300)
-    # model.ans_emb_net.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False)
-    # model.ans_emb_net2.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False)
+    # model.ans_emb_net.weight = nn.Parameter(torch.from_numpy(ans_emb), requires_grad=False)
+    # model.ans_emb_net2.weight = nn.Parameter(torch.from_numpy(ans_emb), requires_grad=False)
 
     total_param = 0
     for param in model.parameters():
@@ -219,7 +219,7 @@ def main():
         lr = adjust_learning_rate(optimizer, epoch)
         ploter.append(epoch, lr, 'lr')
 
-        loss = train(train_loader, model, criterion, optimizer, epoch, itoa_emb)
+        loss = train(train_loader, model, criterion, optimizer, epoch, ans_emb)
         ploter.append(epoch, loss, 'train-loss')
 
         if do_test:
@@ -287,13 +287,13 @@ def load_embeddings(name):
     return vocab, vecs
 
 
-def train(train_loader, model, criterion, optimizer, epoch, itoa_emb):
+def train(train_loader, model, criterion, optimizer, epoch, ans_emb):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
 
     model.train()
-    itoa_emb = Variable(torch.from_numpy(itoa_emb).transpose(0,1)).cuda()
+    ans_emb = Variable(torch.from_numpy(ans_emb).transpose(0,1)).cuda()
 
     end = time.time()
     # sample: (que_id, img, que, [obj], ans)
@@ -303,7 +303,7 @@ def train(train_loader, model, criterion, optimizer, epoch, itoa_emb):
         sample_var = [Variable(d).cuda() for d in list(sample)[1:]]
 
         fuse_emb = model(*sample_var[:-1]) # (64, 300)
-        score = torch.mm(fuse_emb, itoa_emb) # (64, 8205)
+        score = torch.mm(fuse_emb, ans_emb) # (64, 8205)
         loss = criterion(score, sample_var[-1])
 
         losses.update(loss.data[0], sample[0].size(0))

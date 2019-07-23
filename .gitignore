@@ -4,9 +4,12 @@ data
 dataTVQA/
 dataTVQA
 log/
+log
 vqa-tools/
 vqa-tools
 vqa-tools-ori
+TextVQA/
+TextVQA
 *.xlsx
 *.ipynb
 

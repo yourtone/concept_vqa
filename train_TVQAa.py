@@ -171,11 +171,11 @@ def main():
                 .format(fill_cnt, len(words)))
         model.we.weight = nn.Parameter(torch.from_numpy(emb))
 
-    itoa_emb = np.load('{}/image-feature/{}/itoa_emb.npy'
+    ans_emb = np.load('{}/image-feature/{}/ans_emb.npy'
         .format(cfg.DATA_DIR, cfg.OCREMD_SOURCE)) # (8205, 300)
-    #itoa_emb = itoa_emb / np.linalg.norm(itoa_emb, axis=1, keepdims=True) # ord=2
-    model.ans_emb_net.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False)
-    model.ans_emb_net2.weight = nn.Parameter(torch.from_numpy(itoa_emb), requires_grad=False)
+    #ans_emb = ans_emb / np.linalg.norm(ans_emb, axis=1, keepdims=True) # ord=2
+    model.ans_emb_net.weight = nn.Parameter(torch.from_numpy(ans_emb), requires_grad=False)
+    model.ans_emb_net2.weight = nn.Parameter(torch.from_numpy(ans_emb), requires_grad=False)
 
     total_param = 0
     for param in model.parameters():

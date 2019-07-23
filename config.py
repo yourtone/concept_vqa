@@ -16,6 +16,9 @@ __C.DATA_DIR = 'dataTVQA'#'data'#'dataTVQA'
 # Path to vqa tools
 __C.VQA_DIR = 'vqa-tools'
 
+# Path to TextVQA
+__C.TVQA_DIR = 'TextVQA'
+
 # Path to log files
 __C.LOG_DIR = 'log'
 
@@ -57,7 +60,8 @@ __C.NUM_BOXES = 100
 __C.NUM_OCRS = 50
 
 # name of pretrained embedding
-__C.WORD_EMBEDDINGS = 'bert.PCA.300d.txt'
+__C.WORD_EMBEDDINGS = 'glove.6B.300d.txt'
+#__C.WORD_EMBEDDINGS = 'bert.PCA.300d.txt'
 
 # Use soft sigmoid loss
 __C.SOFT_LOSS = True
