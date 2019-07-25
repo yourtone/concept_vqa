@@ -356,8 +356,8 @@ def predict(val_loader, model, ans_emb):
     for sample in bar(val_loader):
         sample_var = [Variable(d).cuda() for d in list(sample)[1:]]
         fuse_emb = model(*sample_var) # (64, 300)
-        ans_emb = torch.cat((ans_emb.expand(sample_var[-1].data.size(0),-1,-1), sample_var[-1]), 1) # (64, 8205+50, 300)
-        score = torch.bmm(ans_emb, fuse_emb.unsqueeze(2)).squeeze() # (64, 8205+50)
+        ans_emb_tmp = torch.cat((ans_emb.expand(sample_var[-1].data.size(0),-1,-1), sample_var[-1]), 1) # (64, 8205+50, 300)
+        score = torch.bmm(ans_emb_tmp, fuse_emb.unsqueeze(2)).squeeze() # (64, 8205+50)
         results.extend(format_result(sample[0], score, itoa, qid_ocr))
     return results
 

@@ -60,8 +60,8 @@ __C.NUM_BOXES = 100
 __C.NUM_OCRS = 50
 
 # name of pretrained embedding
-__C.WORD_EMBEDDINGS = 'glove.6B.300d.txt'
-#__C.WORD_EMBEDDINGS = 'bert.PCA.300d.txt'
+#__C.WORD_EMBEDDINGS = 'glove.6B.300d.txt'
+__C.WORD_EMBEDDINGS = 'bert.PCA.300d.txt'
 
 # Use soft sigmoid loss
 __C.SOFT_LOSS = True

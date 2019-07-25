@@ -67,8 +67,8 @@ def main():
     cudnn.benchmark = True
     print('[Info] model name: ' + args.model)
 
-    itoa_emb = np.load('{}/image-feature/bottomup/itoa_emb.npy'
-        .format(cfg.DATA_DIR)) # (8205, 300)
+    ans_emb = np.load('{}/image-feature/{}/ans_emb.npy'
+        .format(cfg.DATA_DIR, cfg.OCREMD_SOURCE)) # (8205, 300)
 
     # predict
     fnames = [(i, 'checkpoint-{:03}.pth.tar'.format(i)) for i in range(
@@ -83,7 +83,7 @@ def main():
             print("[Info] no checkpoint found at '{}'".format(cp_file))
             continue
 
-        results = predict(val_loader, model, itoa_emb)
+        results = predict(val_loader, model, ans_emb)
         result_file = os.path.join(cfg.LOG_DIR,
                                    'result-{:03}.json'.format(epoch))
         json.dump(results, open(result_file, 'w'))
@@ -95,7 +95,7 @@ def main():
         checkpoint = torch.load(cp_file)
         model.load_state_dict(checkpoint['state_dict'])
 
-        results = predict(val_loader, model, itoa_emb)
+        results = predict(val_loader, model, ans_emb)
         result_file = os.path.join(cfg.LOG_DIR, 'result-model-best.json')
         json.dump(results, open(result_file, 'w'))
 
@@ -111,11 +111,11 @@ def main():
 
 
 
-def predict(val_loader, model, itoa_emb):
+def predict(val_loader, model, ans_emb):
     model.eval()
     itoa = val_loader.dataset.codebook['itoa']
-    itoa_emb = Variable(torch.from_numpy(itoa_emb)).cuda() # (8205, 300)
-    itoa_emb = itoa_emb.unsqueeze(0) # (1, 8205, 300)
+    ans_emb = Variable(torch.from_numpy(ans_emb)).cuda() # (8205, 300)
+    ans_emb = ans_emb.unsqueeze(0) # (1, 8205, 300)
     qid_ocr_file = os.path.join(cfg.DATA_DIR, 'qid_ocr_{}.json'.format(cfg.TEST.SPLITS[0]))
     qid_ocr = json.load(open(qid_ocr_file, 'r'))
     results = []
@@ -124,8 +124,8 @@ def predict(val_loader, model, itoa_emb):
     for sample in bar(val_loader):
         sample_var = [Variable(d).cuda() for d in list(sample)[1:]]
         fuse_emb = model(*sample_var) # (64, 300)
-        ans_emb = torch.cat((itoa_emb.expand(sample_var[-1].data.size(0),-1,-1), sample_var[-1]), 1) # (64, 8205+50, 300)
-        score = torch.bmm(ans_emb, fuse_emb.unsqueeze(2)).squeeze() # (64, 8205+50)
+        ans_emb_tmp = torch.cat((ans_emb.expand(sample_var[-1].data.size(0),-1,-1), sample_var[-1]), 1) # (64, 8205+50, 300)
+        score = torch.bmm(ans_emb_tmp, fuse_emb.unsqueeze(2)).squeeze() # (64, 8205+50)
         results.extend(format_result(sample[0], score, itoa, qid_ocr))
     return results
 
