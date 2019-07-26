@@ -93,9 +93,22 @@ def predict(val_loader, model):
     # sample: (que_id, img, que, [obj])
     for sample in bar(val_loader):
         sample_var = [Variable(d).cuda() for d in list(sample)[1:]]
-
         score = model(*sample_var)
+        results.extend(format_result(sample[0], score, itoa))
 
+    return results
+
+
+def predict_train(train_loader, model):
+    model.eval()
+    itoa = train_loader.dataset.codebook['itoa']
+
+    results = []
+    bar = progressbar.ProgressBar()
+    # sample: (que_id, img, que, [obj], ans)
+    for sample in bar(train_loader):
+        sample_var = [Variable(d).cuda() for d in list(sample)[1:-1]]
+        score = model(*sample_var)
         results.extend(format_result(sample[0], score, itoa))
 
     return results

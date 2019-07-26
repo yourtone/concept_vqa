@@ -30,7 +30,7 @@ from torch.autograd import Variable
 from visdom import Visdom
 
 from dataset import VQADataset
-from eval_tools import get_eval, get_eval_subset
+from eval_tools import get_eval
 from config import cfg
 # from predict import predict
 
@@ -209,6 +209,9 @@ def main():
         best_epoch = -1
         start_epoch = args.start_epoch # -1
 
+    best_acc_tr = 0
+    best_epoch_tr = -1
+
     #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_decay_freq, 
     #                        gamma=args.lr_decay_factor, last_epoch=start_epoch)
 
@@ -221,6 +224,14 @@ def main():
 
         loss = train(train_loader, model, criterion, optimizer, epoch, ans_emb)
         ploter.append(epoch, loss, 'train-loss')
+
+        acc_tr = validata_train(train_loader, model, ans_emb)
+        ploter.append(epoch, acc_tr, 'train-acc')
+        if acc_tr > best_acc_tr:
+            best_acc_tr = acc_tr
+            best_epoch_tr = epoch
+        logger.debug('Evaluate Train:\tAcc  {0}%\tBest {1}%(@{2})'
+            .format(acc_tr, best_acc_tr, best_epoch_tr))
 
         if do_test:
             acc = validate(val_loader, model, criterion, epoch, ans_emb)
@@ -326,12 +337,32 @@ def train(train_loader, model, criterion, optimizer, epoch, ans_emb):
     return losses.avg
 
 
-def validate(val_loader, model, criterion, epoch, ans_emb, quesIds=None):
+def validata_train(train_loader, model, ans_emb):
+    results = predict_train(train_loader, model, ans_emb)
+    vqa_eval = get_eval(results, cfg.TRAIN.SPLITS[0])
+    return vqa_eval.accuracy['overall']
+
+def predict_train(val_loader, model, ans_emb):
+    model.eval()
+    itoa = val_loader.dataset.codebook['itoa']
+    ans_emb = Variable(torch.from_numpy(ans_emb)).cuda() # (8205, 300)
+    ans_emb = ans_emb.unsqueeze(0) # (1, 8205, 300)
+    qid_ocr_file = os.path.join(cfg.DATA_DIR, 'qid_ocr_{}.json'.format(cfg.TRAIN.SPLITS[0]))
+    qid_ocr = json.load(open(qid_ocr_file, 'r'))
+    results = []
+    bar = progressbar.ProgressBar()
+    # sample: (que_id, img, que, [obj], ans)
+    for sample in bar(val_loader):
+        sample_var = [Variable(d).cuda() for d in list(sample)[1:-1]]
+        fuse_emb = model(*sample_var) # (64, 300)
+        ans_emb_tmp = torch.cat((ans_emb.expand(sample_var[-1].data.size(0),-1,-1), sample_var[-1]), 1) # (64, 8205+50, 300)
+        score = torch.bmm(ans_emb_tmp, fuse_emb.unsqueeze(2)).squeeze() # (64, 8205+50)
+        results.extend(format_result(sample[0], score, itoa, qid_ocr))
+    return results
+
+def validate(val_loader, model, criterion, epoch, ans_emb):
     results = predict(val_loader, model, ans_emb)
-    if quesIds is None:
-        vqa_eval = get_eval(results, cfg.TEST.SPLITS[0])
-    else:
-        vqa_eval = get_eval_subset(results, cfg.TEST.SPLITS[0], quesIds)
+    vqa_eval = get_eval(results, cfg.TEST.SPLITS[0])
 
     # save result and accuracy
     result_file = os.path.join(cfg.LOG_DIR,

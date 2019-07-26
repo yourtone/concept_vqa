@@ -2,20 +2,11 @@
 trainTVQA.py from train_resume_ft_atype.py
 2019/04/18 15:36 @yourtone
 e.g.
-python trainTVQA.py --model prob_label/DiffAttModel --epochs 80 --ft_epoch 30 --atype_id 0
-
-Training pattern:
-if ft_epoch =0       -> train_subset by atype
-if ft_epoch >epochs  -> no ft
-if 0<ft_epoch<epochs -> train_all_ft_atype
+python trainTVQA.py --model prob_label/DiffAttModel
 
 Resume train:
 if resume =True  -> resume train from previous best model
 if resume =False -> normal train
-
-Predict subset:
-if pred_subset =True  -> validate on subset by atype
-if pred_subset =False -> validate on all val set
 '''
 import argparse
 import sys
@@ -39,9 +30,9 @@ from torch.autograd import Variable
 from visdom import Visdom
 
 from dataset import VQADataset
-from eval_tools import get_eval, get_eval_subset
+from eval_tools import get_eval
 from config import cfg
-from predict import predict
+from predict import predict, predict_train
 
 
 parser = argparse.ArgumentParser(description='Train VQA model')
@@ -71,17 +62,10 @@ parser.add_argument('--lr-decay-freq', default=8, type=int, metavar='N',
                     help='frequency of learning rate decaying')
 parser.add_argument('--wd', '--weight-decay', default=0, type=float,
                     metavar='FLOAT', help='weight decay')
-parser.add_argument('--atype_id', default=0, type=int, metavar='N',
-                    help='index of the clusters')
-# make ft_epoch large for no ft, make ft_epoch 0 for train_subset
-parser.add_argument('--ft_epoch', default=1000, type=int, metavar='N',
-                    help='at which epoch to finetune using train_subset')
 parser.add_argument('-r', '--resume', action='store_true', 
                     help='resume from checkpoint')
 parser.add_argument('--ts', default='20190126214414',
                     help='resume from which timestamp')
-parser.add_argument('--pred_subset', action='store_true', 
-                    help='validate on subset by atype')
 
 if cfg.USE_RANDOM_SEED:
     np.random.seed(cfg.SEED)
@@ -92,47 +76,6 @@ if cfg.USE_RANDOM_SEED:
 logger = logging.getLogger('vqa')
 logger.setLevel(logging.DEBUG)
 
-
-def load_data(ver='v2', split_name='val', RES_DIR='result'):
-    if ver == 'v1':
-        qIdfname = '{}/{}/OpenEnded_mscoco_{}_questions_id.npy'.format(RES_DIR, ver, split_name)
-        #qFeafname = '{}/{}/OpenEnded_mscoco_{}_questions_fea.npy'.format(RES_DIR, ver, split_name)
-        #qId2qTypeId_fname = '{}/{}/mscoco_{}_annotations_qid2qtid.json'.format(RES_DIR, ver, split_name)
-        qId2aTypeId_fname = '{}/{}/mscoco_{}_annotations_qid2atid.json'.format(RES_DIR, ver, split_name)
-    elif ver == 'v2':
-        qIdfname = '{}/{}/v2_OpenEnded_mscoco_{}_questions_id.npy'.format(RES_DIR, ver, split_name)
-        #qFeafname = '{}/{}/v2_OpenEnded_mscoco_{}_questions_fea.npy'.format(RES_DIR, ver, split_name)
-        #qId2qTypeId_fname = '{}/{}/v2_mscoco_{}_annotations_qid2qtid.json'.format(RES_DIR, ver, split_name)
-        qId2aTypeId_fname = '{}/{}/v2_mscoco_{}_annotations_qid2atid.json'.format(RES_DIR, ver, split_name)
-    logger.debug('[Load] {}'.format(qIdfname))
-    queIds = np.load(qIdfname)
-    #logger.debug('[Load] {}'.format(qFeafname))
-    #queFea = np.load(qFeafname)
-    #logger.debug('[Load] {}'.format(qId2qTypeId_fname))
-    #with open(qId2qTypeId_fname, 'r') as f:
-        #qid2qtid = json.load(f)
-    logger.debug('[Load] {}'.format(qId2aTypeId_fname))
-    with open(qId2aTypeId_fname, 'r') as f:
-        qid2atid = json.load(f)
-    #qTypeIds = np.zeros(len(queIds), dtype=int)
-    aTypeIds = np.zeros(len(queIds), dtype=int)
-    for i,qid in enumerate(queIds):
-        #qTypeIds[i] = qid2qtid[str(int(qid))]
-        aTypeIds[i] = qid2atid[str(int(qid))]
-    return queIds, aTypeIds # queIds, queFea, qTypeIds, aTypeIds
-
-def select_subset(VQAset, sel=None):
-    if sel is None:
-        return VQAset
-    else:
-        #sel = [qid in quesIds for qid in VQAset.que_id]
-        sel = np.array(sel)
-        VQAset.img_pos = VQAset.img_pos[sel]
-        VQAset.que = VQAset.que[sel]
-        VQAset.que_id = VQAset.que_id[sel]
-        if 'train' in VQAset.splits:
-            VQAset.ans = VQAset.ans[sel]
-        return VQAset
 
 def gen_dataloader(args, data_set, shuffle=True):
     data_loader = torch.utils.data.DataLoader(
@@ -184,24 +127,11 @@ def main():
     logger.debug('[Info] use gpu: {}'.format(torch.cuda.current_device()))
 
     # display some information
-    train_pattern = '[Info] Training pattern: {}\n'\
-        '\t[train_subset by atype, no finetune, train_all_ft_atype]'
-    if args.ft_epoch == 0:
-        logger.debug(train_pattern.format('train_subset by atype'))
-    elif args.ft_epoch > args.epochs:
-        logger.debug(train_pattern.format('no finetune'))
-    else: #0<ft_epoch<epochs
-        logger.debug(train_pattern.format('train_all_ft_atype'))
     resume_train = '[Info] Resume train: {}'
     if args.resume:
         logger.debug(resume_train.format('resume train from previous best model'))
     else:
         logger.debug(resume_train.format('normal train'))
-    pred_sub = '[Info] Predict subset: {}'
-    if args.pred_subset:
-        logger.debug(pred_sub.format('validate on subset by atype'))
-    else:
-        logger.debug(pred_sub.format('validate on all val set'))
 
     # load data
     logger.debug('[Info] init dataset')
@@ -286,6 +216,9 @@ def main():
         best_epoch = -1
         start_epoch = args.start_epoch # -1
 
+    best_acc_tr = 0
+    best_epoch_tr = -1
+
     #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_decay_freq, 
     #                        gamma=args.lr_decay_factor, last_epoch=start_epoch)
 
@@ -296,44 +229,19 @@ def main():
         lr = adjust_learning_rate(optimizer, epoch)
         ploter.append(epoch, lr, 'lr')
 
-        if epoch == args.ft_epoch:
-            logger.debug('[Info] finetune using atype_id {} data, at epoch {}'
-                .format(args.atype_id, args.ft_epoch))
-            # load atypes
-            RES_DIR = '/home/lyt/code/bert-as-service-test/result'
-            queIds, aTypeIds = load_data(split_name='train', RES_DIR=RES_DIR)
-            assert queIds.tolist() == trn_set.que_id.tolist()
-            # select specified data for training
-            sel = aTypeIds == args.atype_id
-            trn_quesIds = queIds[sel].tolist()
-            logger.debug('[Info] #Train set before/after selecting {}/{}'
-                .format(queIds.shape[0], len(trn_quesIds)))
-            trn_set = select_subset(trn_set, sel)
-            # set train loader
-            train_loader = gen_dataloader(args, trn_set, shuffle=True)
-            # validation set
-            if do_test and args.pred_subset:
-                # load atypes
-                queIds, aTypeIds = load_data(split_name='val', RES_DIR=RES_DIR)
-                assert queIds.tolist() == val_set.que_id.tolist()
-                # select specified data for training
-                sel = aTypeIds == args.atype_id
-                val_quesIds = queIds[sel].tolist()
-                logger.debug('[Info] #Val set before/after selecting {}/{}'
-                    .format(queIds.shape[0], len(val_quesIds)))
-                val_set = select_subset(val_set, sel)
-                # set val loader
-                val_loader = gen_dataloader(args, val_set, shuffle=False)
-
-
         loss = train(train_loader, model, criterion, optimizer, epoch)
         ploter.append(epoch, loss, 'train-loss')
 
+        acc_tr = validata_train(train_loader, model)
+        ploter.append(epoch, acc_tr, 'train-acc')
+        if acc_tr > best_acc_tr:
+            best_acc_tr = acc_tr
+            best_epoch_tr = epoch
+        logger.debug('Evaluate Train:\tAcc  {0}%\tBest {1}%(@{2})'
+            .format(acc_tr, best_acc_tr, best_epoch_tr))
+
         if do_test:
-            if args.pred_subset:
-                acc = validate(val_loader, model, criterion, epoch, quesIds=val_quesIds)
-            else:
-                acc = validate(val_loader, model, criterion, epoch)
+            acc = validate(val_loader, model, criterion, epoch)
             ploter.append(epoch, acc, 'val-acc')
             if acc > best_acc:
                 is_best = True
@@ -454,12 +362,14 @@ def train(train_loader, model, criterion, optimizer, epoch):
     return losses.avg
 
 
-def validate(val_loader, model, criterion, epoch, quesIds=None):
+def validata_train(train_loader, model):
+    results = predict_train(train_loader, model)
+    vqa_eval = get_eval(results, cfg.TRAIN.SPLITS[0])
+    return vqa_eval.accuracy['overall']
+
+def validate(val_loader, model, criterion, epoch):
     results = predict(val_loader, model)
-    if quesIds is None:
-        vqa_eval = get_eval(results, cfg.TEST.SPLITS[0])
-    else:
-        vqa_eval = get_eval_subset(results, cfg.TEST.SPLITS[0], quesIds)
+    vqa_eval = get_eval(results, cfg.TEST.SPLITS[0])
 
     # save result and accuracy
     result_file = os.path.join(cfg.LOG_DIR,
