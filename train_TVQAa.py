@@ -70,8 +70,6 @@ parser.add_argument('--ts', default='20190126214414',
 if cfg.USE_RANDOM_SEED:
     np.random.seed(cfg.SEED)
     torch.manual_seed(cfg.SEED)
-    torch.cuda.manual_seed(cfg.SEED)
-    torch.cuda.manual_seed_all(cfg.SEED)
 
 logger = logging.getLogger('vqa')
 logger.setLevel(logging.DEBUG)
@@ -118,12 +116,17 @@ def main():
     logger.debug('[Info] called with: ' + args_str)
 
     logger.debug('[Info] timestamp: ' + timestamp)
-    logger.debug('[Info] CPU random seed: {}'.format(torch.initial_seed()))
-    logger.debug('[Info] GPU random seed: {}'.format(torch.cuda.initial_seed()))
 
     # select device
     torch.cuda.set_device(args.gpu_id)
-    logger.debug('[Info] use gpu: {}'.format(torch.cuda.current_device()))
+    logger.debug('[Info] use gpu: {} ({})'.format(torch.cuda.current_device(), 
+        torch.cuda.get_device_name(torch.cuda.current_device())))
+    if cfg.USE_RANDOM_SEED:
+        torch.cuda.manual_seed(cfg.SEED)
+        torch.cuda.manual_seed_all(cfg.SEED)
+
+    logger.debug('[Info] CPU random seed: {}'.format(torch.initial_seed()))
+    logger.debug('[Info] GPU random seed: {}'.format(torch.cuda.initial_seed()))
 
     # display some information
     resume_train = '[Info] Resume train: {}'
